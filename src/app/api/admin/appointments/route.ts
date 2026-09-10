@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest) {
       const { data: appt } = await supabaseAdmin
         .from('appointments').select('service:services(duree_minutes)').eq('id', appointment_id).single()
       if (appt) {
-        const duree = (appt.service as { duree_minutes: number }).duree_minutes
+        const duree = (appt.service as unknown as { duree_minutes: number }).duree_minutes
         const [h, m] = updates.heure_debut.split(':').map(Number)
         const fin = new Date(0, 0, 0, h, m + duree)
         const pad = (n: number) => String(n).padStart(2, '0')

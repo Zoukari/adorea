@@ -202,7 +202,7 @@ export default function ServicesPage() {
             ].map(f => (
               <div key={f.key} style={{ marginBottom:12 }}>
                 <label style={{ fontSize:10, fontWeight:600, letterSpacing:'0.12em', color:T.muted, textTransform:'uppercase', display:'block', marginBottom:5 }}>{f.label}</label>
-                <input type={f.type} value={(promoForm as Record<string, string>)[f.key] || ''} onChange={e => setPromoForm(p => ({ ...p, [f.key]: e.target.value }))}
+                <input type={f.type} value={(promoForm as Record<string, string | boolean>)[f.key] as string || ''} onChange={e => setPromoForm(p => ({ ...p, [f.key]: e.target.value }))}
                   style={{ width:'100%', padding:'9px 12px', border:`1px solid ${T.beige}`, borderRadius:4, fontFamily:'Manrope,sans-serif', fontSize:13, outline:'none', background:'white' }} />
               </div>
             ))}
