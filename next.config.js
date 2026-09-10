@@ -6,6 +6,10 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
+  // Next 15 — React 19 compatible
+  experimental: {
+    reactCompiler: false,
+  },
 }
 
 module.exports = nextConfig

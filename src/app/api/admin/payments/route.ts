@@ -13,7 +13,7 @@ const PaymentSchema = z.object({
 
 // POST — créer un paiement et valider le RDV
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
 // PATCH — valider un screenshot de paiement reçu sur WA
 export async function PATCH(req: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
 
