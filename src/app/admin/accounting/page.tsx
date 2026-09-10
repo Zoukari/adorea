@@ -147,8 +147,8 @@ export default function AccountingPage() {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="name" tick={{ fontSize:10, fill:T.muted }} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{ fontSize:10, fill:T.muted }} axisLine={false} tickLine={false} tickFormatter={v => (v/1000)+'k'}/>
-                  <Tooltip formatter={(v: number) => FDJ(v)} contentStyle={{ fontFamily:'Manrope,sans-serif', fontSize:12 }}/>
+                  <YAxis tick={{ fontSize:10, fill:T.muted }} axisLine={false} tickLine={false} tickFormatter={(v: number) => (v/1000)+'k'}/>
+                  <Tooltip formatter={(v) => FDJ(Number(v))} contentStyle={{ fontFamily:'Manrope,sans-serif', fontSize:12 }}/>
                   <Legend iconSize={8} wrapperStyle={{ fontSize:11 }}/>
                   <Area type="monotone" dataKey="ca" name="CA" stroke={T.gold} strokeWidth={2} fill="url(#gCa)"/>
                   <Area type="monotone" dataKey="depenses" name="Dépenses" stroke="#F44336" strokeWidth={1.5} fill="url(#gExp)"/>
@@ -165,8 +165,8 @@ export default function AccountingPage() {
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={caByCat.map(c => ({ name: c.categorie_nom, ca: c.ca_total }))}>
                     <XAxis dataKey="name" tick={{ fontSize:10, fill:T.muted }} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{ fontSize:10, fill:T.muted }} axisLine={false} tickLine={false} tickFormatter={v => (v/1000)+'k'}/>
-                    <Tooltip formatter={(v: number) => FDJ(v)} contentStyle={{ fontFamily:'Manrope,sans-serif', fontSize:12 }}/>
+                    <YAxis tick={{ fontSize:10, fill:T.muted }} axisLine={false} tickLine={false} tickFormatter={(v: number) => (v/1000)+'k'}/>
+                    <Tooltip formatter={(v) => FDJ(Number(v))} contentStyle={{ fontFamily:'Manrope,sans-serif', fontSize:12 }}/>
                     <Bar dataKey="ca" fill={T.nude} radius={[4,4,0,0]}/>
                   </BarChart>
                 </ResponsiveContainer>

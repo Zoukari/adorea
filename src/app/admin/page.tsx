@@ -191,8 +191,8 @@ export default function AdminDashboard() {
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} tickFormatter={v => (v/1000)+'k'} />
-                    <Tooltip formatter={(v: number) => FDJ(v)} contentStyle={{ fontFamily: 'Manrope, sans-serif', fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} tickFormatter={(v: number) => (v/1000)+'k'} />
+                    <Tooltip formatter={(v) => FDJ(Number(v))} contentStyle={{ fontFamily: 'Manrope, sans-serif', fontSize: 12 }} />
                     <Area type="monotone" dataKey="ca" stroke={T.gold} strokeWidth={2} fill="url(#caGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -212,8 +212,8 @@ export default function AdminDashboard() {
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={catData}>
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} tickFormatter={v => (v/1000)+'k'} />
-                    <Tooltip formatter={(v: number) => FDJ(v)} contentStyle={{ fontFamily: 'Manrope, sans-serif', fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 10, fill: T.muted }} axisLine={false} tickLine={false} tickFormatter={(v: number) => (v/1000)+'k'} />
+                    <Tooltip formatter={(v) => FDJ(Number(v))} contentStyle={{ fontFamily: 'Manrope, sans-serif', fontSize: 12 }} />
                     <Bar dataKey="ca" fill={T.nude} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
