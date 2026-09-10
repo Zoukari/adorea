@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <!-- Monogram fleur stylisée -->
+  <circle cx="24" cy="24" r="1.5" fill="#C9A96A"/>
+  <ellipse cx="24" cy="17" rx="2" ry="5.5" fill="#C9A96A" opacity="0.7"/>
+  <ellipse cx="24" cy="31" rx="2" ry="5.5" fill="#C9A96A" opacity="0.7"/>
+  <ellipse cx="17" cy="24" rx="5.5" ry="2" fill="#C9A96A" opacity="0.7"/>
+  <ellipse cx="31" cy="24" rx="5.5" ry="2" fill="#C9A96A" opacity="0.7"/>
+  <ellipse cx="19.2" cy="19.2" rx="2" ry="5.5" fill="#C9A96A" opacity="0.45" transform="rotate(-45 19.2 19.2)"/>
+  <ellipse cx="28.8" cy="28.8" rx="2" ry="5.5" fill="#C9A96A" opacity="0.45" transform="rotate(-45 28.8 28.8)"/>
+  <ellipse cx="28.8" cy="19.2" rx="2" ry="5.5" fill="#C9A96A" opacity="0.45" transform="rotate(45 28.8 19.2)"/>
+  <ellipse cx="19.2" cy="28.8" rx="2" ry="5.5" fill="#C9A96A" opacity="0.45" transform="rotate(45 19.2 28.8)"/>
+  <!-- Texte ADORÉA -->
+  <text x="54" y="31" font-family="Cormorant Garamond, Georgia, serif" font-size="22" font-weight="300" letter-spacing="3" fill="#1A1A1A">ADORÉA</text>
+</svg>
