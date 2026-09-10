@@ -1,0 +1,57 @@
+adorea/
+├── .env.local
+├── package.json
+├── next.config.js
+├── tailwind.config.js
+├── tsconfig.json
+├── middleware.ts
+├── public/
+│   └── logo.svg
+├── src/
+│   ├── lib/
+│   │   ├── supabase.ts          (client browser)
+│   │   ├── supabase-server.ts   (client server)
+│   │   ├── supabase-admin.ts    (service role)
+│   │   └── constants.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── hooks/
+│   │   ├── useAvailableSlots.ts
+│   │   ├── useAvailableDays.ts
+│   │   └── useServices.ts
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx             (landing = adorea.jsx adapté)
+│   │   ├── booking/
+│   │   │   └── page.tsx
+│   │   ├── api/
+│   │   │   ├── booking/route.ts
+│   │   │   ├── client/route.ts
+│   │   │   └── slots/route.ts
+│   │   └── admin/
+│   │       ├── layout.tsx
+│   │       ├── page.tsx         (dashboard)
+│   │       ├── appointments/page.tsx
+│   │       ├── clients/page.tsx
+│   │       ├── services/page.tsx
+│   │       ├── employees/page.tsx
+│   │       ├── planning/page.tsx
+│   │       ├── caisse/page.tsx
+│   │       ├── loyalty/page.tsx
+│   │       ├── accounting/page.tsx
+│   │       └── settings/page.tsx
+│   └── components/
+│       ├── public/
+│       │   ├── HeroSection.tsx
+│       │   ├── ServicesGrid.tsx
+│       │   ├── BASlider.tsx
+│       │   ├── BookingModal.tsx
+│       │   ├── IslandNav.tsx
+│       │   ├── Floaters.tsx
+│       │   └── ContactSection.tsx
+│       └── admin/
+│           ├── Sidebar.tsx
+│           ├── DashboardStats.tsx
+│           ├── CalendarView.tsx
+│           ├── AppointmentCard.tsx
+│           └── ClientCard.tsx
