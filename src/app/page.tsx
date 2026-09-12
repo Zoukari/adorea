@@ -106,7 +106,7 @@ const SERVICES = [
     label:{ FR:'Sourcils PMU', EN:'Brows PMU', AR:'حواجب PMU' },
     desc:{ FR:'Restructuration et définition naturelle du regard. Powder Brows, Combo Brows — résultat naturel et durable.', EN:'Natural brow restructuring. Powder Brows, Combo Brows — lasting results.', AR:'إعادة هيكلة طبيعية للحواجب.' },
     items:[{name:'Powder Brows',devis:false},{name:'Combo Brows',devis:false},{name:'Retouche 1 mois',devis:false},{name:'Retouche annuelle (9–15 mois)',devis:false},{name:'Retouche (après 15 mois)',devis:true}],
-    img:'/images/sourcils-mirror.png', kw:'PRÉCISION · RÉSULTATS NATURELS', bg:C.noir,
+    img:'/images/pmu-brows.png', kw:'PRÉCISION · RÉSULTATS NATURELS', bg:C.noir,
   },
   {
     id:'levres', cat:'PMU — Lèvres',
@@ -134,7 +134,7 @@ const SERVICES = [
 // Gallery horizontale scroll
 const GALLERY_ITEMS = [
   { img:'/images/hero-main.png',      label:'STUDIO',   name:'ADORÉA' },
-  { img:'/images/sourcils-mirror.png',label:'PMU',      name:'Sourcils' },
+  { img:'/images/pmu-brows.png',       label:'PMU',      name:'Sourcils' },
   { img:'/images/levres-closeup.png', label:'PMU',      name:'Lèvres' },
   { img:'/images/makeup-profile.png', label:'MAKEUP',   name:'Makeup Pro' },
   { img:'/images/nails-hero.png',     label:'NAILS',    name:'Nails' },
@@ -149,8 +149,8 @@ const HEALTH_ITEMS = {
 }
 
 const BA = [
-  { label:'Powder Brows', before:'/images/pmu-brows.png', after:'/images/sourcils-mirror.png' },
-  { label:'Candy Lips',   before:'/images/levres.png',    after:'/images/levres-closeup.png' },
+  { label:'Sourcils PMU', before:'/images/ba-before-1.png', after:'/images/ba-after-1.png' },
+  { label:'Lèvres PMU',   before:'/images/ba-before-2.png', after:'/images/ba-after-2.png' },
 ]
 
 const CSS = `
@@ -168,12 +168,7 @@ body{font-family:'Montserrat',sans-serif;background:${C.noir};color:${C.blanc};o
 .lang-pill button.on{background:${C.or};color:${C.noir};font-weight:600}
 
 /* WA pill toggle simple */
-.wa-pill{background:rgba(10,8,7,0.92);backdrop-filter:blur(20px);border:1px solid rgba(37,211,102,0.2);border-radius:50px;display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;transition:all 0.25s}
-.wa-pill.on{border-color:rgba(37,211,102,0.5);background:rgba(37,211,102,0.1)}
-.wa-pill-icon{width:20px;height:20px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform 0.2s}
-.wa-pill.on .wa-pill-icon{transform:scale(1.1)}
-.wa-pill-label{font-family:'Montserrat',sans-serif;font-size:9px;font-weight:500;letter-spacing:0.12em;color:rgba(250,246,240,0.5);text-transform:uppercase}
-.wa-pill.on .wa-pill-label{color:#25D366}
+
 
 /* ── ISLAND NAV ── */
 .island{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:400;background:rgba(10,8,7,0.94);backdrop-filter:blur(24px);border:1px solid rgba(201,169,106,0.1);border-radius:100px;padding:9px 22px;display:flex;gap:2px;max-width:calc(100vw - 220px);overflow-x:auto;scrollbar-width:none}
@@ -326,6 +321,38 @@ section{position:relative}
 .map-box{border-radius:20px;overflow:hidden}
 .map-box iframe{width:100%;aspect-ratio:1;display:block;border:none;filter:grayscale(0.2) brightness(0.85)}
 
+
+/* ── TRANSITIONS STYLE MOKARY ── */
+/* Clip-path reveal (texte qui sort d'un masque) */
+.clip-reveal{opacity:0;clip-path:inset(0 0 100% 0);transition:clip-path 0.9s cubic-bezier(0.16,1,0.3,1),opacity 0.3s}
+.clip-reveal.go{opacity:1;clip-path:inset(0 0 0% 0)}
+/* Scale + fade */
+.zoom-reveal{opacity:0;transform:scale(0.92);transition:opacity 0.9s cubic-bezier(0.16,1,0.3,1),transform 0.9s cubic-bezier(0.16,1,0.3,1)}
+.zoom-reveal.go{opacity:1;transform:scale(1)}
+/* Stagger children */
+.stagger>*:nth-child(1){transition-delay:0s}
+.stagger>*:nth-child(2){transition-delay:0.08s}
+.stagger>*:nth-child(3){transition-delay:0.16s}
+.stagger>*:nth-child(4){transition-delay:0.24s}
+.stagger>*:nth-child(5){transition-delay:0.32s}
+/* Image parallax au hover */
+.parallax-wrap{overflow:hidden}
+.parallax-wrap img{transition:transform 1.2s cubic-bezier(0.16,1,0.3,1)}
+.parallax-wrap:hover img{transform:scale(1.08) translateY(-2%)}
+/* Ligne or animée */
+.gold-line{height:1px;background:linear-gradient(90deg,transparent,rgba(201,169,106,0),rgba(201,169,106,0.6),rgba(201,169,106,0));transform:scaleX(0);transform-origin:left;transition:transform 1s cubic-bezier(0.16,1,0.3,1)}
+.gold-line.go{transform:scaleX(1)}
+/* Texte qui glisse par mots */
+@keyframes wordSlide{from{opacity:0;transform:translateY(120%)}to{opacity:1;transform:none}}
+.word-slide span{display:inline-block;overflow:hidden}
+.word-slide span em{display:inline-block;animation:wordSlide 0.7s cubic-bezier(0.16,1,0.3,1) both}
+.word-slide span:nth-child(1) em{animation-delay:0s}
+.word-slide span:nth-child(2) em{animation-delay:0.1s}
+.word-slide span:nth-child(3) em{animation-delay:0.2s}
+.word-slide span:nth-child(4) em{animation-delay:0.3s}
+/* Fade entre sections */
+.section-enter{animation:sectionFade 0.8s ease both}
+@keyframes sectionFade{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
 /* ── FOOTER ── */
 .footer{background:${C.noir};border-top:1px solid rgba(201,169,106,0.07);padding:60px 52px 44px}
 @media(max-width:640px){.footer{padding:44px 28px 36px}}
@@ -519,7 +546,7 @@ function useReveal() {
       entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('go'); obs.unobserve(e.target) } }),
       { threshold: 0.08 }
     )
-    document.querySelectorAll('.rv,.rv-l,.rv-r').forEach(el => obs.observe(el))
+    document.querySelectorAll('.rv,.rv-l,.rv-r,.clip-reveal,.zoom-reveal,.gold-line').forEach(el => obs.observe(el))
     return () => obs.disconnect()
   }, [])
 }
@@ -804,12 +831,7 @@ export default function Home() {
         <div className="lang-pill">
           {(['FR','EN','AR'] as Lang[]).map(l => <button key={l} className={lang===l?'on':''} onClick={()=>setLang(l)}>{l}</button>)}
         </div>
-        <div className={`wa-pill${waOn?' on':''}`} onClick={()=>setWaOn(w=>!w)}>
-          <div className="wa-pill-icon">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-          </div>
-          <span className="wa-pill-label">WhatsApp</span>
-        </div>
+
       </div>
 
       {/* ── ISLAND NAV ── */}
@@ -835,6 +857,7 @@ export default function Home() {
             </div>
           </div>
           <div className="hero-tag">{t.tagline}</div>
+          <div className="gold-line rv" style={{width:80,marginBottom:24}}/>
           <h1 className="hero-h1">
             <em>{t.h1a}</em>
             <strong>{t.h1b}</strong>
@@ -883,7 +906,7 @@ export default function Home() {
         {SERVICES.map((s,idx)=>(
           <div key={s.id} id={s.id}>
             <div className={`svc-row${idx%2===1?' rev':''}`} style={{background:s.bg}}>
-              <div className="svc-img-col rv"><img src={s.img} alt={s.label[lang]}/></div>
+              <div className="svc-img-col rv parallax-wrap"><img src={s.img} alt={s.label[lang]}/></div>
               <div className="svc-txt-col" style={{background:s.bg}}>
                 <div className="svc-num rv">{String(idx+1).padStart(2,'0')}</div>
                 <div className="svc-cat-lbl rv" style={{transitionDelay:'0.05s'}}>{s.cat}</div>
