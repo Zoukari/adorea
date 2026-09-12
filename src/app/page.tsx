@@ -157,6 +157,43 @@ const CSS = `
 html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
+/* ── OPENING ANIMATION (comme Mokary) ── */
+.opening{position:fixed;inset:0;z-index:999;background:#0A0807;display:flex;align-items:center;justify-content:center;pointer-events:none;animation:openingFade 2.2s cubic-bezier(0.75,0,0.25,1) forwards}
+.opening-logo{opacity:0;transform:scale(0.92);animation:openingLogoIn 1.2s 0.25s cubic-bezier(0.16,1,0.3,1) forwards}
+.opening-bar{position:absolute;bottom:0;left:0;right:0;height:100%;background:#0A0807;transform:translateY(0);animation:openingBar 1.1s 1.1s cubic-bezier(0.75,0,0.25,1) forwards}
+@keyframes openingLogoIn{to{opacity:1;transform:scale(1)}}
+@keyframes openingBar{to{transform:translateY(-100%)}}
+@keyframes openingFade{0%,80%{opacity:1;pointer-events:all}100%{opacity:0;pointer-events:none;visibility:hidden}}
+
+/* ── MARQUEE DEFILANT (comme Mokary) ── */
+.marquee{overflow:hidden;background:transparent;padding:14px 0;position:relative;border-top:1px solid rgba(201,169,106,0.12);border-bottom:1px solid rgba(201,169,106,0.12)}
+.marquee-track{display:flex;gap:60px;white-space:nowrap;animation:marqueeSlide 32s linear infinite;font-family:'Cormorant Garamond',serif;font-size:22px;font-style:italic;font-weight:300;color:rgba(201,169,106,0.55);letter-spacing:0.15em;text-transform:uppercase}
+.marquee-track span{display:inline-flex;align-items:center;gap:60px}
+.marquee-track span::after{content:'✦';font-style:normal;font-size:12px;color:#C9A96A;opacity:0.6}
+@keyframes marqueeSlide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ── NUMEROS GEANTS DE SECTION (comme Mokary "01 Artisanat") ── */
+.mega-num{display:flex;align-items:baseline;gap:14px;padding:80px 52px 40px}
+.mega-num-num{font-family:'Cormorant Garamond',serif;font-size:clamp(80px,12vw,180px);font-weight:300;line-height:0.85;color:transparent;-webkit-text-stroke:1px currentColor;letter-spacing:-0.02em;opacity:0.5}
+.mega-num-label{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.42em;text-transform:uppercase;padding-bottom:16px}
+.mega-num.dark-txt .mega-num-num{color:#0A0807}
+.mega-num.dark-txt .mega-num-label{color:#0A0807}
+.mega-num.light-txt .mega-num-num{color:#FAF6F0}
+.mega-num.light-txt .mega-num-label{color:#C9A96A}
+@media(max-width:640px){.mega-num{padding:52px 22px 28px}.mega-num-num{font-size:clamp(64px,20vw,110px)}}
+
+/* ── CLIP-PATH IMAGE REVEAL (bottom → top, comme Mokary) ── */
+.clip-up{position:relative;overflow:hidden}
+.clip-up img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.15);transition:transform 1.6s cubic-bezier(0.16,1,0.3,1)}
+.clip-up.go img{transform:scale(1)}
+.clip-up::after{content:'';position:absolute;inset:0;background:inherit;transform:translateY(0);transition:transform 1.4s cubic-bezier(0.75,0,0.25,1)}
+.clip-up.go::after{transform:translateY(101%)}
+.clip-up-dark::after{background:#0A0807}
+.clip-up-cream::after{background:#F4EAD8}
+.clip-up-brun::after{background:#1C1410}
+
+
+
 /* ── VIEWPORT FIX ── */
 :root{--vw:100vw}
 
@@ -184,15 +221,18 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .wa-pill.on .wa-pill-label{color:#25D366}
 
 /* ── ISLAND NAV ── */
-.island{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:400;backdrop-filter:blur(24px);border-radius:100px;padding:8px 18px;display:flex;gap:1px;max-width:calc(100vw - 180px);overflow-x:auto;scrollbar-width:none;transition:background 0.5s ease,border-color 0.5s ease,box-shadow 0.5s ease;box-shadow:0 8px 32px rgba(0,0,0,0.25)}
+/* ── ISLAND NAV (style Mokary - inversion complete au scroll) ── */
+.island{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:400;backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-radius:100px;padding:8px 18px;display:flex;gap:1px;max-width:calc(100vw - 180px);overflow-x:auto;scrollbar-width:none;transition:background 0.6s cubic-bezier(0.65,0,0.35,1),border-color 0.6s cubic-bezier(0.65,0,0.35,1),box-shadow 0.6s cubic-bezier(0.65,0,0.35,1);box-shadow:0 8px 32px rgba(0,0,0,0.28)}
 .island::-webkit-scrollbar{display:none}
-.island.dark{background:rgba(10,8,7,0.95);border:1.5px solid rgba(201,169,106,0.35)}
-.island.light{background:rgba(244,234,216,0.96);border:1.5px solid rgba(154,120,64,0.4);box-shadow:0 8px 32px rgba(0,0,0,0.12)}
-.island a,.island a:link,.island a:visited{text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:300;letter-spacing:0.08em;padding:6px 11px;border-radius:50px;white-space:nowrap;transition:all 0.2s;flex-shrink:0;color:rgba(250,246,240,0.3)}
-.island.dark a,.island.dark a:link,.island.dark a:visited{color:rgba(250,246,240,0.42)}
-.island.light a,.island.light a:link,.island.light a:visited{color:rgba(28,20,16,0.5)}
-.island.dark a:hover,.island.dark a.on{background:rgba(201,169,106,0.16);color:#E2C07A}
-.island.light a:hover,.island.light a.on{background:rgba(154,120,64,0.14);color:#9A7840}
+/* DARK: sur fond noir/brun (hero, services, gallery, rdv, contact) */
+.island.dark{background:rgba(10,8,7,0.85);border:1.5px solid rgba(201,169,106,0.4)}
+/* LIGHT: sur fond crème (brand, ba) — inversion complete */
+.island.light{background:rgba(255,251,244,0.92);border:1.5px solid rgba(28,20,16,0.15);box-shadow:0 10px 40px rgba(28,20,16,0.15)}
+.island a,.island a:link,.island a:visited{text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:400;letter-spacing:0.09em;padding:6px 12px;border-radius:50px;white-space:nowrap;transition:color 0.5s ease,background 0.25s ease;flex-shrink:0}
+.island.dark a,.island.dark a:link,.island.dark a:visited{color:rgba(250,246,240,0.55)}
+.island.light a,.island.light a:link,.island.light a:visited{color:rgba(28,20,16,0.65)}
+.island.dark a:hover,.island.dark a.on{background:rgba(201,169,106,0.2);color:#F4EAD8}
+.island.light a:hover,.island.light a.on{background:rgba(28,20,16,0.08);color:#0A0807;font-weight:500}
 
 /* ── WA FAB ── */
 .wa-fab{position:fixed;bottom:80px;right:20px;z-index:390;width:50px;height:50px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,0.35);transition:transform 0.2s,opacity 0.3s,visibility 0.3s}
@@ -212,7 +252,7 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .hero{position:relative;height:100svh;min-height:640px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
 .hero-bg{position:absolute;inset:0}
 .hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 20%;animation:hZoom 14s ease forwards}
-@media(max-width:640px){.hero-bg img{object-position:center center}}
+@media(max-width:640px){.hero-bg img{object-position:70% center}}
 @keyframes hZoom{from{transform:scale(1.06)}to{transform:scale(1)}}
 .hero-grad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,8,7,0.1) 0%,rgba(10,8,7,0) 20%,rgba(10,8,7,0.5) 60%,rgba(10,8,7,0.97) 100%)}
 .hero-content{position:relative;z-index:2;padding:0 52px 108px}
@@ -422,6 +462,28 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .btn-prev-m{background:transparent;border:1.5px solid #DDD0BE;border-radius:100px;padding:11px 18px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:400;cursor:pointer;color:#7A5C42;transition:border-color 0.2s;letter-spacing:0.1em}
 .btn-prev-m:hover{border-color:#C9956A}
 
+/* ── MOKARY IMAGE OPEN (image qui s'ouvre du bas vers le haut) ── */
+.img-open{position:relative;overflow:hidden}
+.img-open img{transform:scale(1.15);transition:transform 1.6s cubic-bezier(0.16,1,0.3,1)}
+.img-open::before{content:'';position:absolute;inset:0;background:#0A0807;transform:translateY(0);transition:transform 1.4s cubic-bezier(0.75,0,0.25,1);z-index:1;pointer-events:none}
+.img-open.go::before{transform:translateY(-101%)}
+.img-open.go img{transform:scale(1)}
+
+/* Version claire pour fonds crème */
+.img-open.light-bg::before{background:#F4EAD8}
+
+/* ── OPENING LOADER (ouverture site style Mokary) ── */
+.opening{position:fixed;inset:0;z-index:9999;background:#0A0807;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.opening-logo{opacity:0;transform:translateY(20px);animation:openingLogoIn 0.9s 0.3s cubic-bezier(0.16,1,0.3,1) forwards,openingLogoOut 0.6s 2.2s cubic-bezier(0.75,0,0.25,1) forwards}
+.opening-bg-a,.opening-bg-b{position:absolute;left:0;right:0;background:#0A0807;z-index:2;transition:transform 1s cubic-bezier(0.75,0,0.25,1)}
+.opening-bg-a{top:0;bottom:50%}
+.opening-bg-b{top:50%;bottom:0}
+.opening.done .opening-bg-a{transform:translateY(-101%);transition-delay:2.6s}
+.opening.done .opening-bg-b{transform:translateY(101%);transition-delay:2.6s}
+.opening.done{pointer-events:none;visibility:hidden;transition:visibility 0s 3.7s}
+@keyframes openingLogoIn{to{opacity:1;transform:translateY(0)}}
+@keyframes openingLogoOut{to{opacity:0;transform:translateY(-12px);filter:blur(8px)}}
+
 /* ── LIGNE REVEAL (masque, style Mokary) ── */
 .line-mask{display:block;overflow:hidden}
 .line-mask-inner{display:block;transform:translateY(105%);transition:transform 1.05s cubic-bezier(0.16,1,0.3,1)}
@@ -586,13 +648,23 @@ function GalleryScroll({ items }: { items: typeof GALLERY_ITEMS }) {
 function useActiveSection() {
   const [active, setActive] = useState('hero')
   useEffect(() => {
-    const sections = ['hero','sourcils','levres','makeup','nails','gallery','contact']
-    const obs = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id || 'hero') }),
-      { threshold: 0.3 }
-    )
-    sections.forEach(id => { const el = document.getElementById(id); if (el) obs.observe(el) })
-    return () => obs.disconnect()
+    const sectionIds = ['hero','brand','services','sourcils','levres','makeup','nails','gallery','ba','rdv','contact']
+    function onScroll() {
+      const y = window.scrollY + window.innerHeight * 0.35
+      let current = 'hero'
+      for (const id of sectionIds) {
+        const el = document.getElementById(id)
+        if (el && el.offsetTop <= y) current = id
+      }
+      setActive(current)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
   }, [])
   return active
 }
@@ -603,7 +675,7 @@ function useReveal() {
       entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('go'); obs.unobserve(e.target) } }),
       { threshold: 0.08 }
     )
-    document.querySelectorAll('.rv,.rv-l,.rv-r,.clip-reveal,.zoom-reveal,.gold-line').forEach(el => obs.observe(el))
+    document.querySelectorAll('.rv,.rv-l,.rv-r,.clip-reveal,.zoom-reveal,.gold-line,.img-open,.line-mask,.clip-up').forEach(el => obs.observe(el))
     return () => obs.disconnect()
   }, [])
 }
@@ -885,6 +957,14 @@ export default function Home() {
     <div dir={dir}>
       <style>{CSS}</style>
 
+      {/* ══ OPENING ANIMATION (Mokary style) ══ */}
+      <div className="opening">
+        <div className="opening-logo">
+          <img src="/images/logo-mark.png" alt="" style={{width:96,height:96,objectFit:'contain'}}/>
+        </div>
+        <div className="opening-bar"/>
+      </div>
+
       {/* ── TOGGLES DROITE ── */}
       <div className="toggles-right">
         {/* Langue dropdown */}
@@ -903,7 +983,7 @@ export default function Home() {
       </div>
 
       {/* ── ISLAND NAV ── */}
-      <nav className={`island ${["brand","ba"].includes(activeSection) ? "light" : "dark"}`}>
+      <nav className={`island ${["brand","ba"].indexOf(activeSection) !== -1 ? "light" : "dark"}`}>
         {t.nav.map((item,i) => <a key={i} href={['#hero','#rdv','#sourcils','#levres','#makeup','#nails','#contact'][i]}>{item}</a>)}
       </nav>
 
@@ -939,10 +1019,26 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ══ MARQUEE (comme Mokary) ══ */}
+      <div className="marquee">
+        <div className="marquee-track">
+          <span>ADORÉA · Beauty Confidence You</span>
+          <span>PMU · Makeup Pro · Nails</span>
+          <span>Certified Belgium · Djibouti</span>
+          <span>ADORÉA · Beauty Confidence You</span>
+          <span>PMU · Makeup Pro · Nails</span>
+          <span>Certified Belgium · Djibouti</span>
+        </div>
+      </div>
+
       {/* ══ BRAND ══ */}
-      <section className="brand-sec">
+      <section className="brand-sec" id="brand">
+        <div className="mega-num dark-txt rv">
+          <span className="mega-num-num">01</span>
+          <span className="mega-num-label">{lang==='FR'?'Notre maison':lang==='EN'?'Our house':'دارنا'}</span>
+        </div>
         <div className="brand-inner">
-          <div className="brand-img-col rv-l glass-shimmer">
+          <div className="brand-img-col clip-up clip-up-cream glass-shimmer">
             <img src="/images/brand-beige.png" alt="ADORÉA Brand" style={{objectPosition:'center 30%'}}/>
           </div>
           <div className="brand-txt-col">
@@ -968,6 +1064,10 @@ export default function Home() {
 
       {/* ══ SERVICES ══ */}
       <section className="svc-sec" id="services">
+        <div className="mega-num light-txt rv">
+          <span className="mega-num-num">02</span>
+          <span className="mega-num-label">{lang==='FR'?'Nos prestations':lang==='EN'?'Our services':'خدماتنا'}</span>
+        </div>
         <div className="svc-header">
           <div className="tag rv" style={{justifyContent:'center'}}><SecNum n="02"/>{t.svc_tag}</div>
           <RevealLines tag="h2" text={t.svc_sub} className="svc-header-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
@@ -976,7 +1076,7 @@ export default function Home() {
         {SERVICES.map((s,idx)=>(
           <div key={s.id} id={s.id}>
             <div className={`svc-row${idx%2===1?' rev':''}`} style={{background:s.bg}}>
-              <div className="svc-img-col rv parallax-wrap glass-shimmer"><img src={s.img} alt={s.label[lang]}/></div>
+              <div className={`svc-img-col clip-up ${idx%2===1?'clip-up-brun':'clip-up-dark'} glass-shimmer`}><img src={s.img} alt={s.label[lang]}/></div>
               <div className="svc-txt-col" style={{background:s.bg}}>
                 <div className="svc-num rv">{String(idx+1).padStart(2,'0')}</div>
                 <div className="svc-cat-lbl rv" style={{transitionDelay:'0.05s'}}>{s.cat}</div>
@@ -1005,6 +1105,10 @@ export default function Home() {
 
       {/* ══ GALLERY HORIZONTALE ══ */}
       <section className="gallery-sec" id="gallery">
+        <div className="mega-num light-txt rv">
+          <span className="mega-num-num">03</span>
+          <span className="mega-num-label">{lang==='FR'?'Notre univers':lang==='EN'?'Our universe':'عالمنا'}</span>
+        </div>
         <div className="gallery-header">
           <div className="tag rv" style={{justifyContent:'center'}}><SecNum n="03"/>{t.gallery_tag}</div>
         </div>
@@ -1014,7 +1118,11 @@ export default function Home() {
       <div className="fade-sep"/>
 
       {/* ══ BEFORE / AFTER ══ */}
-      <section className="ba-sec">
+      <section className="ba-sec" id="ba">
+        <div className="mega-num dark-txt rv" style={{padding:'0 0 32px'}}>
+          <span className="mega-num-num">04</span>
+          <span className="mega-num-label">{lang==='FR'?'Avant · Après':lang==='EN'?'Before · After':'قبل · بعد'}</span>
+        </div>
         <div className="tag rv" style={{color:C.orFonce}}><SecNum n="04"/>{t.ba_tag}</div>
         <RevealLines tag="h2" text={t.ba_h} className="ba-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
         <div className="ba-grid">
@@ -1030,6 +1138,10 @@ export default function Home() {
 
       {/* ══ BOOK CTA ══ */}
       <section className="book-sec" id="rdv">
+        <div className="mega-num light-txt rv" style={{padding:'0 52px 40px', justifyContent:'center'}}>
+          <span className="mega-num-num">05</span>
+          <span className="mega-num-label">{lang==='FR'?'Réservation':lang==='EN'?'Booking':'الحجز'}</span>
+        </div>
         <div className="tag rv" style={{justifyContent:'center'}}><SecNum n="05"/>{t.book_tag}</div>
         <RevealLines tag="h2" text={t.book_h} className="book-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
         <p className="book-sub rv" style={{transitionDelay:'0.2s'}}>{t.book_sub}</p>
@@ -1042,6 +1154,10 @@ export default function Home() {
 
       {/* ══ CONTACT ══ */}
       <section className="contact-sec" id="contact">
+        <div className="mega-num light-txt rv">
+          <span className="mega-num-num">06</span>
+          <span className="mega-num-label">{lang==='FR'?'Nous trouver':lang==='EN'?'Find us':'موقعنا'}</span>
+        </div>
         <div className="contact-grid">
           <div>
             <div className="tag rv" style={{color:C.or}}><SecNum n="06"/>{t.contact_tag}</div>

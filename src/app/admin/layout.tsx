@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 
 const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', offwhite:'#F9F6F2', muted:'#8A7A74' }
 
@@ -23,7 +24,15 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+
+  async function logout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:'#F2EDE8' }}>
@@ -73,6 +82,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )
           })}
         </nav>
+
+        {/* Logout */}
+        <button onClick={logout} style={{
+          background:'transparent', border:'none', cursor:'pointer',
+          padding: collapsed ? '14px 0' : '14px 20px', color:'rgba(255,255,255,0.5)',
+          fontSize:12, borderTop:'1px solid rgba(255,255,255,0.06)',
+          display:'flex', alignItems:'center', gap:10, transition:'all 0.2s',
+          justifyContent: collapsed ? 'center' : 'flex-start', flexShrink:0,
+          fontFamily:'Manrope,sans-serif', letterSpacing:'0.05em',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = '#F44336')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
+        >
+          <span style={{fontSize:14}}>↩</span>
+          {!collapsed && 'Déconnexion'}
+        </button>
 
         {/* Collapse */}
         <button onClick={() => setCollapsed(c => !c)} style={{
