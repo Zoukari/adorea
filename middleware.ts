@@ -35,6 +35,25 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set('from', request.nextUrl.pathname)
       return NextResponse.redirect(loginUrl)
     }
+
+    // Vérifier que le profil existe et est actif
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('actif')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (!profile) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('error', 'no_profile')
+      return NextResponse.redirect(loginUrl)
+    }
+
+    if (profile.actif === false) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('error', 'inactive')
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
   return supabaseResponse

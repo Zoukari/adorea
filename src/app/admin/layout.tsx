@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import AdminDiagnostic from '@/components/AdminDiagnostic'
 
 const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', offwhite:'#F9F6F2', muted:'#8A7A74' }
 
@@ -121,6 +122,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }}>
         {/* Content wrapper avec padding et coins arrondis visuels */}
         <div style={{ padding:'20px 20px 80px', minHeight:'100vh' }}>
+          <AdminDiagnostic />
           <div style={{
             background:T.offwhite, borderRadius:24,
             minHeight:'calc(100vh - 40px)',

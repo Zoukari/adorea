@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
 const T = {
@@ -8,13 +8,23 @@ const T = {
   black: '#1A1A1A', offwhite: '#F9F6F2', muted: '#8A7A74',
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const supabase = createClient()
   const router = useRouter()
+  const params = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const e = params.get('error')
+    if (e === 'no_profile') {
+      setError("Votre compte n'a pas de profil dans la base. Lancez la migration 05_fix_admin.sql dans Supabase.")
+    } else if (e === 'inactive') {
+      setError('Votre compte est désactivé. Contactez un administrateur.')
+    }
+  }, [params])
 
   async function login() {
     setError('')
@@ -24,7 +34,8 @@ export default function LoginPage() {
       setError('Email ou mot de passe incorrect.')
       setLoading(false)
     } else {
-      router.push('/admin')
+      const from = params.get('from') || '/admin'
+      router.push(from)
       router.refresh()
     }
   }
@@ -95,5 +106,13 @@ export default function LoginPage() {
         </button>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#1A1A1A' }} />}>
+      <LoginForm />
+    </Suspense>
   )
 }

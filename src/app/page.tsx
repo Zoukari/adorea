@@ -531,10 +531,10 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
   .contact-sec{padding:64px 22px}
   .contact-h{font-size:38px}
   .footer{padding:40px 22px 32px}
-  .toggles-right{bottom:16px;right:12px;gap:6px}
-  .island{bottom:12px;max-width:calc(100vw - 130px);padding:6px 12px}
-  .island a{font-size:9px;padding:5px 8px}
-  .wa-fab{bottom:68px;right:12px;width:44px;height:44px}
+  .island{bottom:12px;left:12px;right:auto;transform:none;max-width:calc(100vw - 86px);padding:6px 10px;justify-content:flex-start}
+  .island a{font-size:10px;padding:6px 10px}
+  .toggles-right{bottom:70px;right:12px;gap:6px}
+  .wa-fab{bottom:12px;right:12px;width:44px;height:44px}
   .modal{padding:24px 18px 44px}
 }`
 
