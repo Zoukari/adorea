@@ -184,15 +184,15 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .wa-pill.on .wa-pill-label{color:#25D366}
 
 /* ── ISLAND NAV ── */
-.island{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:400;backdrop-filter:blur(24px);border-radius:100px;padding:8px 18px;display:flex;gap:1px;max-width:calc(100vw - 180px);overflow-x:auto;scrollbar-width:none;transition:background 0.5s ease,border-color 0.5s ease,box-shadow 0.5s ease}
+.island{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:400;backdrop-filter:blur(24px);border-radius:100px;padding:8px 18px;display:flex;gap:1px;max-width:calc(100vw - 180px);overflow-x:auto;scrollbar-width:none;transition:background 0.5s ease,border-color 0.5s ease,box-shadow 0.5s ease;box-shadow:0 8px 32px rgba(0,0,0,0.25)}
 .island::-webkit-scrollbar{display:none}
-.island.dark{background:rgba(10,8,7,0.93);border:1px solid rgba(201,169,106,0.1)}
-.island.light{background:rgba(244,234,216,0.93);border:1px solid rgba(154,120,64,0.18);box-shadow:0 4px 24px rgba(0,0,0,0.08)}
-.island a{text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:300;letter-spacing:0.08em;padding:6px 11px;border-radius:50px;white-space:nowrap;transition:all 0.2s;flex-shrink:0}
-.island.dark a{color:rgba(250,246,240,0.3)}
-.island.light a{color:rgba(28,20,16,0.4)}
-.island.dark a:hover,.island.dark a.on{background:rgba(201,169,106,0.12);color:#C9A96A}
-.island.light a:hover,.island.light a.on{background:rgba(154,120,64,0.1);color:#9A7840}
+.island.dark{background:rgba(10,8,7,0.95);border:1.5px solid rgba(201,169,106,0.35)}
+.island.light{background:rgba(244,234,216,0.96);border:1.5px solid rgba(154,120,64,0.4);box-shadow:0 8px 32px rgba(0,0,0,0.12)}
+.island a,.island a:link,.island a:visited{text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:300;letter-spacing:0.08em;padding:6px 11px;border-radius:50px;white-space:nowrap;transition:all 0.2s;flex-shrink:0;color:rgba(250,246,240,0.3)}
+.island.dark a,.island.dark a:link,.island.dark a:visited{color:rgba(250,246,240,0.42)}
+.island.light a,.island.light a:link,.island.light a:visited{color:rgba(28,20,16,0.5)}
+.island.dark a:hover,.island.dark a.on{background:rgba(201,169,106,0.16);color:#E2C07A}
+.island.light a:hover,.island.light a.on{background:rgba(154,120,64,0.14);color:#9A7840}
 
 /* ── WA FAB ── */
 .wa-fab{position:fixed;bottom:80px;right:20px;z-index:390;width:50px;height:50px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 4px 20px rgba(37,211,102,0.35);transition:transform 0.2s,opacity 0.3s,visibility 0.3s}
@@ -212,14 +212,18 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .hero{position:relative;height:100svh;min-height:640px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
 .hero-bg{position:absolute;inset:0}
 .hero-bg img{width:100%;height:100%;object-fit:cover;object-position:center 20%;animation:hZoom 14s ease forwards}
+@media(max-width:640px){.hero-bg img{object-position:center center}}
 @keyframes hZoom{from{transform:scale(1.06)}to{transform:scale(1)}}
 .hero-grad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,8,7,0.1) 0%,rgba(10,8,7,0) 20%,rgba(10,8,7,0.5) 60%,rgba(10,8,7,0.97) 100%)}
 .hero-content{position:relative;z-index:2;padding:0 52px 108px}
 .hero-logo-wrap{display:flex;align-items:center;gap:16px;margin-bottom:40px;opacity:0;animation:fadeIn 1.2s 0.3s ease forwards}
 .hero-tag{font-size:9px;font-weight:300;letter-spacing:0.42em;color:#C9A96A;text-transform:uppercase;margin-bottom:18px;opacity:0;animation:fadeIn 1.2s 0.6s ease forwards}
-.hero-h1{font-family:'Cormorant Garamond',serif;font-weight:300;color:#FAF6F0;margin-bottom:36px;opacity:0;animation:fadeIn 1.2s 0.9s ease forwards}
-.hero-h1 em{display:block;font-size:clamp(38px,6vw,80px);font-style:italic;line-height:1.05;color:rgba(250,246,240,0.65)}
-.hero-h1 strong{display:block;font-size:clamp(38px,6vw,80px);font-weight:300;line-height:1.05}
+.hero-h1{font-family:'Cormorant Garamond',serif;font-weight:300;color:#FAF6F0;margin-bottom:36px}
+.hero-line{overflow:hidden;display:block}
+.hero-line-inner{display:block;transform:translateY(108%);animation:heroLineUp 1.05s cubic-bezier(0.16,1,0.3,1) forwards;font-size:clamp(38px,6vw,80px);line-height:1.05}
+.hero-line:nth-child(1) .hero-line-inner{animation-delay:0.85s;font-style:italic;color:rgba(250,246,240,0.65)}
+.hero-line:nth-child(2) .hero-line-inner{animation-delay:1.0s;font-weight:300}
+@keyframes heroLineUp{to{transform:translateY(0)}}
 .hero-btns{display:flex;gap:12px;flex-wrap:wrap;opacity:0;animation:fadeIn 1.2s 1.1s ease forwards}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
@@ -418,6 +422,24 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .btn-prev-m{background:transparent;border:1.5px solid #DDD0BE;border-radius:100px;padding:11px 18px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:400;cursor:pointer;color:#7A5C42;transition:border-color 0.2s;letter-spacing:0.1em}
 .btn-prev-m:hover{border-color:#C9956A}
 
+/* ── LIGNE REVEAL (masque, style Mokary) ── */
+.line-mask{display:block;overflow:hidden}
+.line-mask-inner{display:block;transform:translateY(105%);transition:transform 1.05s cubic-bezier(0.16,1,0.3,1)}
+.line-mask.go .line-mask-inner{transform:translateY(0)}
+
+/* ── SECTION NUMBER STYLE MOKARY ── */
+.sec-num{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:300;font-style:italic;opacity:0.55;margin-right:10px;letter-spacing:0}
+
+/* ── GLASS EFFECTS (verre dépoli) ── */
+.glass-chip{background:rgba(250,246,240,0.06);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(250,246,240,0.16);border-radius:100px}
+.glass-chip-light{background:rgba(10,8,7,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(10,8,7,0.1);border-radius:100px}
+.glass-card{background:rgba(250,246,240,0.045);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);border:1px solid rgba(250,246,240,0.12);border-radius:20px}
+
+/* ── SHIMMER AU HOVER (reflet verre) ── */
+.glass-shimmer{position:relative;overflow:hidden}
+.glass-shimmer::after{content:'';position:absolute;top:0;left:-160%;width:55%;height:100%;background:linear-gradient(115deg,transparent,rgba(255,255,255,0.16),transparent);transform:skewX(-18deg);transition:left 0.85s cubic-bezier(0.16,1,0.3,1);pointer-events:none;z-index:2}
+.glass-shimmer:hover::after{left:160%}
+
 /* ── RESPONSIVE MOBILE ── */
 @media(max-width:768px){
   .brand-inner{grid-template-columns:1fr}
@@ -428,7 +450,7 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 }
 @media(max-width:640px){
   .hero-content{padding:0 22px 96px}
-  .hero-h1 em,.hero-h1 strong{font-size:clamp(34px,10vw,52px)}
+  .hero-line-inner{font-size:clamp(34px,10vw,52px)}
   .hero-logo-wrap{margin-bottom:24px}
   .hero-btns{gap:10px}
   .brand-txt-col{padding:44px 22px}
@@ -455,6 +477,28 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 }`
 
 // ── BA Slider ────────────────────────────────────────────────
+// ── Mokary-style line-mask title reveal ──────────────────────
+function RevealLines({ text, className, style, tag = 'h2', baseDelay = 0 }:
+  { text: string; className?: string; style?: React.CSSProperties; tag?: 'h1'|'h2'|'h3'|'p'; baseDelay?: number }) {
+  const lines = text.split('\n')
+  const Tag = tag as React.ElementType
+  return (
+    <Tag className={className} style={style}>
+      {lines.map((line, i) => (
+        <span className="line-mask rv" key={i} style={{ transitionDelay: `${baseDelay + i * 0.1}s` }}>
+          <span className="line-mask-inner">{line}</span>
+        </span>
+      ))}
+    </Tag>
+  )
+}
+
+// ── Numéro de section style Mokary ("01", "02"...) ────────────
+function SecNum({ n }: { n: string }) {
+  return <span className="sec-num">{n}</span>
+}
+
+// ── BA Slider ────────────────────────────────────────────────
 function BASlider({ before, after }: { before: string; after: string }) {
   const [pos, setPos] = useState(50)
   const ref = useRef<HTMLDivElement>(null)
@@ -473,7 +517,7 @@ function BASlider({ before, after }: { before: string; after: string }) {
     return () => { window.removeEventListener('mouseup', up); window.removeEventListener('mousemove', mm); window.removeEventListener('touchend', up); window.removeEventListener('touchmove', tm) }
   }, [move])
   return (
-    <div className="ba-slider" ref={ref}
+    <div className="ba-slider glass-shimmer" ref={ref}
       onMouseDown={e => { drag.current = true; move(e.clientX) }}
       onTouchStart={e => { drag.current = true; move(e.touches[0].clientX) }}>
       <img className="ba-img" src={before} alt="avant" />
@@ -522,7 +566,7 @@ function GalleryScroll({ items }: { items: typeof GALLERY_ITEMS }) {
         onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
         onScroll={onScroll}>
         {items.map((item, i) => (
-          <div key={i} className="gallery-card">
+          <div key={i} className="gallery-card glass-shimmer">
             <img src={item.img} alt={item.name} draggable={false} style={{objectPosition: item.img.includes('gallery-makeup') ? 'center 60%' : 'top'}} />
             <div className="gallery-card-over">
               <div className="gallery-card-tag">{item.label}</div>
@@ -859,7 +903,7 @@ export default function Home() {
       </div>
 
       {/* ── ISLAND NAV ── */}
-      <nav className={`island${["brand","ba"].includes(activeSection)?" light":""}`}>
+      <nav className={`island ${["brand","ba"].includes(activeSection) ? "light" : "dark"}`}>
         {t.nav.map((item,i) => <a key={i} href={['#hero','#rdv','#sourcils','#levres','#makeup','#nails','#contact'][i]}>{item}</a>)}
       </nav>
 
@@ -874,17 +918,19 @@ export default function Home() {
         <div className="hero-grad"/>
         <div className="hero-content">
           <div className="hero-logo-wrap">
-            <img src="/images/logo-mark.png" alt="ADORÉA logo" style={{width:70,height:70,objectFit:'contain'}}/>
-            <div style={{lineHeight:1}}>
-              <div style={{fontFamily:'Cormorant Garamond,serif',fontSize:22,fontWeight:300,color:C.blanc,letterSpacing:'0.22em',textTransform:'uppercase'}}>ADORÉA</div>
-              <div style={{fontFamily:'Montserrat,sans-serif',fontSize:8,fontWeight:300,color:C.blanc,letterSpacing:'0.22em',textTransform:'uppercase',marginTop:4,opacity:0.6}}>PMU & MAKEUP PRO</div>
+            <div className="glass-chip" style={{display:'flex',alignItems:'center',gap:14,padding:'10px 20px 10px 10px'}}>
+              <img src="/images/logo-mark.png" alt="ADORÉA logo" style={{width:56,height:56,objectFit:'contain'}}/>
+              <div style={{lineHeight:1}}>
+                <div style={{fontFamily:'Cormorant Garamond,serif',fontSize:20,fontWeight:300,color:C.blanc,letterSpacing:'0.22em',textTransform:'uppercase'}}>ADORÉA</div>
+                <div style={{fontFamily:'Montserrat,sans-serif',fontSize:8,fontWeight:300,color:C.blanc,letterSpacing:'0.22em',textTransform:'uppercase',marginTop:4,opacity:0.6}}>PMU & MAKEUP PRO</div>
+              </div>
             </div>
           </div>
           <div className="hero-tag">{t.tagline}</div>
           <div className="gold-line rv" style={{width:80,marginBottom:24}}/>
           <h1 className="hero-h1">
-            <em>{t.h1a}</em>
-            <strong>{t.h1b}</strong>
+            <span className="hero-line"><span className="hero-line-inner">{t.h1a}</span></span>
+            <span className="hero-line"><span className="hero-line-inner">{t.h1b}</span></span>
           </h1>
           <div className="hero-btns">
             <button className="btn-or" onClick={()=>setBooking(true)}>{t.cta1}</button>
@@ -896,12 +942,12 @@ export default function Home() {
       {/* ══ BRAND ══ */}
       <section className="brand-sec">
         <div className="brand-inner">
-          <div className="brand-img-col rv-l">
+          <div className="brand-img-col rv-l glass-shimmer">
             <img src="/images/brand-beige.png" alt="ADORÉA Brand" style={{objectPosition:'center 30%'}}/>
           </div>
           <div className="brand-txt-col">
-            <div className="tag rv na" style={{color:C.orFonce}}>{t.brand_tag}</div>
-            <h2 className="brand-h rv" style={{transitionDelay:'0.1s'}}>{t.brand_h}</h2>
+            <div className="tag rv na" style={{color:C.orFonce}}><SecNum n="01"/>{t.brand_tag}</div>
+            <RevealLines tag="h2" text={t.brand_h} className="brand-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
             <p className="brand-p rv" style={{transitionDelay:'0.2s'}}>
               {lang==='FR'?'ADORÉA est un studio beauté premium à Djibouti. Spécialisé dans le maquillage permanent, le makeup professionnel et l\'art des ongles — chaque prestation est réalisée avec des pigments certifiés et des techniques maîtrisées en Belgique.':
                lang==='EN'?'ADORÉA is a premium beauty studio in Djibouti. Specialising in permanent makeup, professional beauty and nail artistry — every treatment uses certified pigments and Belgian-certified techniques.':
@@ -910,7 +956,7 @@ export default function Home() {
             <div className="brand-kws rv" style={{transitionDelay:'0.3s'}}>
               {t.brand_kw.map((k,i)=><div key={i} className="brand-kw-item">{k}</div>)}
             </div>
-            <div className="rv" style={{transitionDelay:'0.4s',display:'inline-flex',alignItems:'center',gap:12,padding:'12px 18px',border:`1px solid ${C.orFonce}`,borderRadius:100}}>
+            <div className="rv glass-chip-light" style={{transitionDelay:'0.4s',display:'inline-flex',alignItems:'center',gap:12,padding:'12px 18px'}}>
               <img src="/images/logo-mark.png" alt="" style={{width:24,height:24,objectFit:'contain'}}/>
               <span style={{fontFamily:'Montserrat,sans-serif',fontSize:9,fontWeight:500,letterSpacing:'0.2em',color:C.taupe,textTransform:'uppercase'}}>{t.cert}</span>
             </div>
@@ -923,14 +969,14 @@ export default function Home() {
       {/* ══ SERVICES ══ */}
       <section className="svc-sec" id="services">
         <div className="svc-header">
-          <div className="tag rv" style={{justifyContent:'center'}}>{t.svc_tag}</div>
-          <h2 className="svc-header-h rv" style={{transitionDelay:'0.1s'}}>{t.svc_sub}</h2>
+          <div className="tag rv" style={{justifyContent:'center'}}><SecNum n="02"/>{t.svc_tag}</div>
+          <RevealLines tag="h2" text={t.svc_sub} className="svc-header-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
         </div>
 
         {SERVICES.map((s,idx)=>(
           <div key={s.id} id={s.id}>
             <div className={`svc-row${idx%2===1?' rev':''}`} style={{background:s.bg}}>
-              <div className="svc-img-col rv parallax-wrap"><img src={s.img} alt={s.label[lang]}/></div>
+              <div className="svc-img-col rv parallax-wrap glass-shimmer"><img src={s.img} alt={s.label[lang]}/></div>
               <div className="svc-txt-col" style={{background:s.bg}}>
                 <div className="svc-num rv">{String(idx+1).padStart(2,'0')}</div>
                 <div className="svc-cat-lbl rv" style={{transitionDelay:'0.05s'}}>{s.cat}</div>
@@ -960,7 +1006,7 @@ export default function Home() {
       {/* ══ GALLERY HORIZONTALE ══ */}
       <section className="gallery-sec" id="gallery">
         <div className="gallery-header">
-          <div className="tag rv" style={{justifyContent:'center'}}>{t.gallery_tag}</div>
+          <div className="tag rv" style={{justifyContent:'center'}}><SecNum n="03"/>{t.gallery_tag}</div>
         </div>
         <GalleryScroll items={GALLERY_ITEMS} />
       </section>
@@ -969,8 +1015,8 @@ export default function Home() {
 
       {/* ══ BEFORE / AFTER ══ */}
       <section className="ba-sec">
-        <div className="tag rv" style={{color:C.orFonce}}>{t.ba_tag}</div>
-        <h2 className="ba-h rv" style={{transitionDelay:'0.1s'}}>{t.ba_h}</h2>
+        <div className="tag rv" style={{color:C.orFonce}}><SecNum n="04"/>{t.ba_tag}</div>
+        <RevealLines tag="h2" text={t.ba_h} className="ba-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
         <div className="ba-grid">
           {BA.map((item,i)=>(
             <div key={i} className="rv" style={{transitionDelay:`${i*0.15}s`}}>
@@ -984,8 +1030,8 @@ export default function Home() {
 
       {/* ══ BOOK CTA ══ */}
       <section className="book-sec" id="rdv">
-        <div className="tag rv" style={{justifyContent:'center'}}>{t.book_tag}</div>
-        <h2 className="book-h rv" style={{transitionDelay:'0.1s'}}>{t.book_h}</h2>
+        <div className="tag rv" style={{justifyContent:'center'}}><SecNum n="05"/>{t.book_tag}</div>
+        <RevealLines tag="h2" text={t.book_h} className="book-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
         <p className="book-sub rv" style={{transitionDelay:'0.2s'}}>{t.book_sub}</p>
         <div className="rv" style={{transitionDelay:'0.3s'}}>
           <button className="btn-or" onClick={()=>setBooking(true)}>{t.book_btn}</button>
@@ -998,7 +1044,7 @@ export default function Home() {
       <section className="contact-sec" id="contact">
         <div className="contact-grid">
           <div>
-            <div className="tag rv" style={{color:C.or}}>{t.contact_tag}</div>
+            <div className="tag rv" style={{color:C.or}}><SecNum n="06"/>{t.contact_tag}</div>
             <h2 className="contact-h rv" style={{transitionDelay:'0.1s'}}>ADORÉA</h2>
             <div className="contact-sub rv" style={{transitionDelay:'0.15s'}}>PMU & MAKEUP PRO · CERTIFIED BELGIUM</div>
             {[
@@ -1018,14 +1064,14 @@ export default function Home() {
             </div>
             <div className="social-row rv" style={{transitionDelay:'0.6s'}}>
               {SOCIAL.map(s=>(
-                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="soc-link">
+                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="soc-link glass-chip">
                   <span>{s.icon}</span>{s.name}
                 </a>
               ))}
             </div>
           </div>
           <div className="rv-r">
-            <div className="map-box">
+            <div className="map-box glass-shimmer">
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3834.5!2d43.0769420!3d11.5708051!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTHCsDM0JzE0LjkiTiA0M8KwMDQnMzcuMCJF!5e0!3m2!1sfr!2sdj!4v1"
                 allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="ADORÉA Djibouti"/>
