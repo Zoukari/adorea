@@ -112,7 +112,7 @@ const SERVICES = [
     id:'levres', cat:'PMU — Lèvres',
     label:{ FR:'Lèvres PMU', EN:'Lips PMU', AR:'شفاه PMU' },
     desc:{ FR:'Lèvres définies et colorées avec subtilité. Candy Lips et neutralisation — longue tenue.', EN:'Subtly defined and colored lips. Candy Lips and neutralisation — long lasting.', AR:'شفاه محددة ومعرّفة بشكل خفيف.' },
-    items:[{name:'Candy Lips',devis:false},{name:'Neutralisation lèvres foncées',devis:true},{name:'Retouche annuelle (9–15 mois)',devis:false},{name:'Retouche (après 15 mois)',devis:true}],
+    items:[{name:'Candy Lips',devis:false},{name:'Retouche annuelle (9–15 mois)',devis:false},{name:'Retouche (après 15 mois)',devis:true}],
     img:'/images/levres-closeup.png', kw:'COLORATION SUBTILE · LONGUE TENUE', bg:C.brun,
   },
   {
@@ -133,13 +133,11 @@ const SERVICES = [
 
 // Gallery horizontale scroll
 const GALLERY_ITEMS = [
-  { img:'/images/hero-main.png',      label:'STUDIO',   name:'ADORÉA' },
-  { img:'/images/pmu-brows.png',       label:'PMU',      name:'Sourcils' },
-  { img:'/images/levres-closeup.png', label:'PMU',      name:'Lèvres' },
-  { img:'/images/makeup-profile.png', label:'MAKEUP',   name:'Makeup Pro' },
-  { img:'/images/nails-hero.png',     label:'NAILS',    name:'Nails' },
-  { img:'/images/djibouti-woman.png', label:'DJIBOUTI', name:'ADORÉA' },
-  { img:'/images/brand-beige.png',    label:'BRAND',    name:'Art Beauté' },
+  { img:'/images/gallery-makeup.png',  label:'MAKEUP PRO', name:'Pour vos grands moments' },
+  { img:'/images/gallery-levres.png',  label:'LÈVRES PMU', name:'Des lèvres sublimées' },
+  { img:'/images/gallery-nails.png',   label:'NAILS',      name:'Élégance au bout des ongles' },
+  { img:'/images/gallery-sourcils.png',label:'SOURCILS PMU',name:'Précision & savoir-faire' },
+  { img:'/images/hero-main.png',       label:'STUDIO',     name:'ADORÉA Djibouti' },
 ]
 
 const HEALTH_ITEMS = {
@@ -150,7 +148,7 @@ const HEALTH_ITEMS = {
 
 const BA = [
   { label:'Sourcils PMU', before:'/images/ba-before-1.png', after:'/images/ba-after-1.png' },
-  { label:'Lèvres PMU',   before:'/images/ba-before-2.png', after:'/images/ba-after-2.png' },
+  { label:'Lèvres PMU',   before:'/images/ba-after-2.png', after:'/images/ba-before-2.png' },
 ]
 
 const CSS = `
@@ -163,18 +161,28 @@ body{font-family:'Montserrat',sans-serif;background:${C.noir};color:${C.blanc};o
 .toggles-right{position:fixed;bottom:28px;right:22px;z-index:400;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
 [dir=rtl] .toggles-right{right:auto;left:22px;align-items:flex-start}
 
-.lang-pill{background:rgba(10,8,7,0.92);backdrop-filter:blur(20px);border:1px solid rgba(201,169,106,0.2);border-radius:50px;display:flex;gap:2px;padding:3px}
-.lang-pill button{background:transparent;border:none;border-radius:30px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500;letter-spacing:0.08em;padding:6px 12px;color:rgba(250,246,240,0.38);transition:all 0.2s}
-.lang-pill button.on{background:${C.or};color:${C.noir};font-weight:600}
+.lang-btn{background:rgba(10,8,7,0.92);backdrop-filter:blur(20px);border:1px solid rgba(201,169,106,0.2);border-radius:50px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.1em;padding:7px 16px;color:${C.or};transition:all 0.2s;display:flex;align-items:center;gap:6px}
+.lang-btn:hover{border-color:rgba(201,169,106,0.5)}
+.lang-btn svg{transition:transform 0.2s}
+.lang-btn.open svg{transform:rotate(180deg)}
+.lang-dropdown{position:absolute;bottom:calc(100% + 8px);right:0;background:rgba(10,8,7,0.96);backdrop-filter:blur(24px);border:1px solid rgba(201,169,106,0.15);border-radius:16px;overflow:hidden;display:none;flex-direction:column;min-width:80px}
+.lang-dropdown.open{display:flex}
+.lang-dropdown button{background:transparent;border:none;border-bottom:1px solid rgba(201,169,106,0.08);cursor:pointer;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:400;letter-spacing:0.12em;padding:10px 18px;color:rgba(250,246,240,0.5);transition:all 0.15s;text-align:left}
+.lang-dropdown button:last-child{border-bottom:none}
+.lang-dropdown button:hover,.lang-dropdown button.on{color:${C.or};background:rgba(201,169,106,0.06)}
+.lang-dropdown button.on{font-weight:600}
 
 /* WA pill toggle simple */
 
 
 /* ── ISLAND NAV ── */
-.island{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:400;background:rgba(10,8,7,0.94);backdrop-filter:blur(24px);border:1px solid rgba(201,169,106,0.1);border-radius:100px;padding:9px 22px;display:flex;gap:2px;max-width:calc(100vw - 220px);overflow-x:auto;scrollbar-width:none}
+.island{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:400;background:rgba(10,8,7,0.94);backdrop-filter:blur(24px);border:1px solid rgba(201,169,106,0.1);border-radius:100px;padding:7px 16px;display:flex;gap:1px;max-width:calc(100vw - 160px);overflow-x:auto;scrollbar-width:none;transition:background 0.4s,border-color 0.4s}
 .island::-webkit-scrollbar{display:none}
-.island a{color:rgba(250,246,240,0.32);text-decoration:none;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:300;letter-spacing:0.1em;padding:7px 14px;border-radius:50px;white-space:nowrap;transition:all 0.25s}
-.island a:hover,.island a.on{background:rgba(201,169,106,0.1);color:${C.or}}
+.island.light{background:rgba(244,234,216,0.92);border-color:rgba(154,120,64,0.2)}
+.island a{color:rgba(250,246,240,0.32);text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:300;letter-spacing:0.08em;padding:6px 11px;border-radius:50px;white-space:nowrap;transition:all 0.25s;flex-shrink:0}
+.island.light a{color:rgba(28,20,16,0.45)}
+.island a:hover,.island a.on{background:rgba(201,169,106,0.15);color:${C.or}}
+.island.light a:hover,.island.light a.on{background:rgba(154,120,64,0.12);color:${C.orFonce}}
 
 /* ── WA FAB ── */
 .wa-fab{position:fixed;bottom:88px;right:22px;z-index:390;width:52px;height:52px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 4px 24px rgba(37,211,102,0.4);transition:transform 0.2s,box-shadow 0.2s,opacity 0.3s,visibility 0.3s}
@@ -353,6 +361,37 @@ section{position:relative}
 /* Fade entre sections */
 .section-enter{animation:sectionFade 0.8s ease both}
 @keyframes sectionFade{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+
+/* ── RESPONSIVE MOBILE ── */
+@media(max-width:640px){
+  .hero-content{padding:0 24px 100px}
+  .hero-logo-wrap{margin-bottom:28px}
+  .hero-h1 em,.hero-h1 strong{font-size:clamp(36px,11vw,56px)}
+  .brand-txt-col{padding:48px 24px}
+  .brand-h{font-size:52px}
+  .svc-txt-col{padding:40px 24px}
+  .svc-num{font-size:56px}
+  .gallery-card{flex:0 0 220px}
+  .ba-sec{padding:64px 24px}
+  .book-sec{padding:80px 24px}
+  .contact-sec{padding:64px 24px}
+  .footer{padding:44px 24px 36px}
+  .toggles-right{bottom:20px;right:14px}
+  .island{bottom:14px;max-width:calc(100vw - 140px);padding:6px 12px}
+  .island a{font-size:9px;padding:5px 8px}
+  .wa-fab{bottom:72px;right:14px;width:46px;height:46px}
+  .modal{padding:28px 20px 44px}
+}
+/* ── TRANSITIONS FADE STYLE MOKARY ── */
+.rv,.rv-l,.rv-r{opacity:0;transition:opacity 1s cubic-bezier(0.16,1,0.3,1),transform 1s cubic-bezier(0.16,1,0.3,1)}
+.rv{transform:translateY(28px)}.rv-l{transform:translateX(-28px)}.rv-r{transform:translateX(28px)}
+.rv.go,.rv-l.go,.rv-r.go{opacity:1;transform:none}
+/* Hero fade-in plus lent */
+@keyframes heroFadeIn{from{opacity:0}to{opacity:1}}
+.hero-content{animation:heroFadeIn 1.2s ease forwards}
+/* Sections avec fade doux */
+section{opacity:1}
+
 /* ── FOOTER ── */
 .footer{background:${C.noir};border-top:1px solid rgba(201,169,106,0.07);padding:60px 52px 44px}
 @media(max-width:640px){.footer{padding:44px 28px 36px}}
@@ -524,7 +563,7 @@ function GalleryScroll({ items }: { items: typeof GALLERY_ITEMS }) {
         onScroll={onScroll}>
         {items.map((item, i) => (
           <div key={i} className="gallery-card">
-            <img src={item.img} alt={item.name} draggable={false} />
+            <img src={item.img} alt={item.name} draggable={false} style={{objectPosition: item.img.includes('gallery-makeup') ? 'center 60%' : 'top'}} />
             <div className="gallery-card-over">
               <div className="gallery-card-tag">{item.label}</div>
               <div className="gallery-card-name">{item.name}</div>
@@ -540,6 +579,20 @@ function GalleryScroll({ items }: { items: typeof GALLERY_ITEMS }) {
 }
 
 // ── Scroll Reveal ─────────────────────────────────────────────
+function useActiveSection() {
+  const [active, setActive] = useState('hero')
+  useEffect(() => {
+    const sections = ['hero','sourcils','levres','makeup','nails','gallery','contact']
+    const obs = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id || 'hero') }),
+      { threshold: 0.3 }
+    )
+    sections.forEach(id => { const el = document.getElementById(id); if (el) obs.observe(el) })
+    return () => obs.disconnect()
+  }, [])
+  return active
+}
+
 function useReveal() {
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -808,9 +861,11 @@ function BookingModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
 
 // ── MAIN ─────────────────────────────────────────────────────
 export default function Home() {
-  const [lang, setLang] = useState<Lang>('FR')
-  const [waOn, setWaOn] = useState(true)
+  const [lang, setLang]       = useState<Lang>('FR')
+  const [waOn, setWaOn]       = useState(true)
+  const [langOpen, setLangOpen] = useState(false)
   const [booking, setBooking] = useState(false)
+  const activeSection          = useActiveSection()
   const t = T[lang]
   const dir = lang==='AR' ? 'rtl' : 'ltr'
   useReveal()
@@ -828,14 +883,23 @@ export default function Home() {
 
       {/* ── TOGGLES DROITE ── */}
       <div className="toggles-right">
-        <div className="lang-pill">
-          {(['FR','EN','AR'] as Lang[]).map(l => <button key={l} className={lang===l?'on':''} onClick={()=>setLang(l)}>{l}</button>)}
+        {/* Langue dropdown */}
+        <div style={{position:'relative'}}>
+          <button className={`lang-btn${langOpen?' open':''}`} onClick={()=>setLangOpen(o=>!o)}>
+            {lang}
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <div className={`lang-dropdown${langOpen?' open':''}`}>
+            {(['FR','EN','AR'] as Lang[]).map(l => (
+              <button key={l} className={lang===l?'on':''} onClick={()=>{setLang(l);setLangOpen(false)}}>{l === 'FR' ? '🇫🇷 FR' : l === 'EN' ? '🇬🇧 EN' : '🇸🇦 AR'}</button>
+            ))}
+          </div>
         </div>
 
       </div>
 
       {/* ── ISLAND NAV ── */}
-      <nav className="island">
+      <nav className={`island${["brand","ba"].includes(activeSection)?" light":""}`}>
         {t.nav.map((item,i) => <a key={i} href={['#hero','#rdv','#sourcils','#levres','#makeup','#nails','#contact'][i]}>{item}</a>)}
       </nav>
 

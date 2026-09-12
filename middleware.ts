@@ -27,22 +27,13 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role, actif')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.actif) {
-      return NextResponse.redirect(new URL('/login?error=unauthorized', request.url))
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('from', request.nextUrl.pathname)
+      return NextResponse.redirect(loginUrl)
     }
   }
 
