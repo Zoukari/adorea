@@ -255,6 +255,16 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .klik-mark{width:19px;height:19px;border-radius:5px;background:rgba(201,169,106,0.12);border:1px solid rgba(201,169,106,0.25);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:11px;color:#C9A96A;transition:all 0.25s;flex-shrink:0}
 .klik-bar.light .klik-mark{background:rgba(154,120,64,0.12);border-color:rgba(154,120,64,0.3);color:#9A7840}
 .klik-bar a:hover .klik-mark{background:#C9A96A;color:#0A0807;border-color:#C9A96A}
+
+/* Island KLIK qui s'arrime au footer après 10s */
+.klik-bar.docked{opacity:0;visibility:hidden;transform:translateX(-50%) translateY(14px)}
+
+/* Crédit KLIK dans le footer */
+.klik-footer{border-top:1px solid rgba(250,246,240,0.05);margin-top:22px;padding-top:20px;display:flex;justify-content:center;opacity:0;transform:translateY(10px);transition:opacity 0.8s ease 0.25s,transform 0.8s cubic-bezier(0.19,1,0.22,1) 0.25s}
+.klik-footer.show{opacity:1;transform:none}
+.klik-footer a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:300;letter-spacing:0.12em;color:rgba(250,246,240,0.3);transition:color 0.25s}
+.klik-footer a:hover{color:#C9A96A}
+.klik-footer a:hover .klik-mark{background:#C9A96A;color:#0A0807;border-color:#C9A96A}
 .island.dark a,.island.dark a:link,.island.dark a:visited{color:rgba(250,246,240,0.55)}
 .island.light a,.island.light a:link,.island.light a:visited{color:rgba(28,20,16,0.65)}
 .island.dark a:hover,.island.dark a.on{background:rgba(201,169,106,0.2);color:#F4EAD8}
@@ -403,7 +413,7 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .map-box iframe{width:100%;aspect-ratio:1;display:block;border:none;filter:grayscale(0.15) brightness(0.82)}
 
 /* ── FOOTER ── */
-.footer{background:#0A0807;border-top:1px solid rgba(201,169,106,0.07);padding:56px 52px 130px}
+.footer{background:#0A0807;border-top:1px solid rgba(201,169,106,0.07);padding:56px 52px 110px}
 .footer-top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:32px;margin-bottom:40px}
 .footer-links a{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:300;letter-spacing:0.07em;color:rgba(250,246,240,0.18);text-decoration:none;transition:color 0.2s;margin-right:22px}
 .footer-links a:hover{color:#C9A96A}
@@ -1041,11 +1051,11 @@ export default function Home() {
   const [lang, setLang]       = useState<Lang>('FR')
   const [waOn, setWaOn]       = useState(true)
   const [langOpen, setLangOpen] = useState(false)
-  const [klikVisible, setKlikVisible] = useState(true)
+  const [klikDocked, setKlikDocked] = useState(false)
 
-  // Le crédit KLIK disparaît après 10 secondes
+  // Après 10s, le crédit KLIK quitte l'island flottante pour rejoindre le footer
   useEffect(() => {
-    const t = setTimeout(() => setKlikVisible(false), 10000)
+    const t = setTimeout(() => setKlikDocked(true), 10000)
     return () => clearTimeout(t)
   }, [])
   const [booking, setBooking] = useState(false)
@@ -1340,10 +1350,19 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* Crédit KLIK arrimé au footer (apparaît après 10s) */}
+        <div className={`klik-footer${klikDocked ? ' show' : ''}`}>
+          <a href="https://klikdj.com/" target="_blank" rel="noopener noreferrer">
+            <span className="klik-mark">K</span>
+            {lang==='AR' ? 'موقع من إنجاز KLIK' : lang==='EN' ? 'Site by KLIK' : 'Site réalisé par KLIK'}
+            <span style={{opacity:0.5}}>| © 2026</span>
+          </a>
+        </div>
       </footer>
 
       {/* ══ CRÉDIT KLIK ══ */}
-      <div className={`klik-bar ${["brand","ba"].indexOf(activeSection) !== -1 ? "dark" : "light"}`} style={{opacity: klikVisible ? 1 : 0, visibility: klikVisible ? "visible" : "hidden"}}>
+      <div className={`klik-bar ${["brand","ba"].indexOf(activeSection) !== -1 ? "dark" : "light"}${klikDocked ? " docked" : ""}`}>
         <a href="https://klikdj.com/" target="_blank" rel="noopener noreferrer">
           <span className="klik-mark">K</span>
           {lang==='AR' ? 'موقع من إنجاز KLIK' : lang==='EN' ? 'Site by KLIK' : 'Site réalisé par KLIK'}
