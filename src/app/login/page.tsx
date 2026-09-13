@@ -30,15 +30,30 @@ function LoginForm() {
   async function login() {
     setError('')
     setLoading(true)
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error: err } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    })
     if (err) {
-      setError('Email ou mot de passe incorrect.')
+      const m = err.message || ''
+      if (/email not confirmed/i.test(m)) {
+        setError("Email non confirmé. Dans Supabase → Auth → Users, ouvrez l'utilisateur et cochez « Auto Confirm User ».")
+      } else if (/invalid login credentials/i.test(m)) {
+        setError("Identifiants refusés par Supabase. Vérifiez l'email exact et réinitialisez le mot de passe depuis Auth → Users → ⋯ → Reset password.")
+      } else {
+        setError(`Erreur Supabase : ${m}`)
+      }
       setLoading(false)
-    } else {
-      const from = params.get('from') || '/admin'
-      router.push(from)
-      router.refresh()
+      return
     }
+    if (!data.session) {
+      setError("Connexion acceptée mais aucune session créée. Vérifiez la clé NEXT_PUBLIC_SUPABASE_ANON_KEY sur Vercel.")
+      setLoading(false)
+      return
+    }
+    const from = params.get('from') || '/admin'
+    router.push(from)
+    router.refresh()
   }
 
   return (
@@ -113,7 +128,7 @@ function LoginForm() {
         </div>
 
         {error && (
-          <div style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 12, color: '#F44336', marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 11.5, color: '#C62828', marginBottom: 16, textAlign: 'left', lineHeight: 1.6, background: '#FFEBEE', border: '1px solid #FFCDD2', borderRadius: 12, padding: '11px 13px' }}>
             {error}
           </div>
         )}

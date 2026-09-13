@@ -245,12 +245,12 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .nav-short{display:none}
 
 /* ── KLIK CREDIT ── */
-.klik-bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:399;backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:100px;padding:6px 14px;display:flex;align-items:center;justify-content:center;transition:background 0.6s cubic-bezier(0.65,0,0.35,1),border-color 0.6s cubic-bezier(0.65,0,0.35,1);box-shadow:0 6px 24px rgba(0,0,0,0.22)}
-.klik-bar.dark{background:rgba(10,8,7,0.9);border:1px solid rgba(201,169,106,0.16)}
-.klik-bar.light{background:rgba(244,234,216,0.92);border:1px solid rgba(154,120,64,0.22)}
+.klik-bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:399;backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:100px;padding:6px 14px;display:flex;align-items:center;justify-content:center;transition:background 0.6s cubic-bezier(0.65,0,0.35,1),border-color 0.6s cubic-bezier(0.65,0,0.35,1),opacity 0.7s ease,visibility 0.7s ease;box-shadow:0 6px 24px rgba(0,0,0,0.22)}
+.klik-bar.dark{background:rgba(28,20,16,0.93);border:1px solid rgba(201,169,106,0.3)}
+.klik-bar.light{background:rgba(255,251,244,0.93);border:1px solid rgba(28,20,16,0.12);box-shadow:0 6px 24px rgba(0,0,0,0.18)}
 .klik-bar a{display:inline-flex;align-items:center;gap:7px;text-decoration:none;font-family:'Montserrat',sans-serif;font-size:9px;font-weight:400;letter-spacing:0.1em;transition:color 0.3s;white-space:nowrap}
-.klik-bar.dark a{color:rgba(250,246,240,0.34)}
-.klik-bar.light a{color:rgba(28,20,16,0.42)}
+.klik-bar.dark a{color:rgba(250,246,240,0.6)}
+.klik-bar.light a{color:rgba(28,20,16,0.55)}
 .klik-bar a:hover{color:#C9A96A}
 .klik-mark{width:19px;height:19px;border-radius:5px;background:rgba(201,169,106,0.12);border:1px solid rgba(201,169,106,0.25);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:11px;color:#C9A96A;transition:all 0.25s;flex-shrink:0}
 .klik-bar.light .klik-mark{background:rgba(154,120,64,0.12);border-color:rgba(154,120,64,0.3);color:#9A7840}
@@ -1041,6 +1041,13 @@ export default function Home() {
   const [lang, setLang]       = useState<Lang>('FR')
   const [waOn, setWaOn]       = useState(true)
   const [langOpen, setLangOpen] = useState(false)
+  const [klikVisible, setKlikVisible] = useState(true)
+
+  // Le crédit KLIK disparaît après 10 secondes
+  useEffect(() => {
+    const t = setTimeout(() => setKlikVisible(false), 10000)
+    return () => clearTimeout(t)
+  }, [])
   const [booking, setBooking] = useState(false)
   const activeSection          = useActiveSection()
   const t = T[lang]
@@ -1086,7 +1093,7 @@ export default function Home() {
       </div>
 
       {/* ── ISLAND NAV ── */}
-      <nav className={`island ${["brand","ba"].indexOf(activeSection) !== -1 ? "light" : "dark"}`}>
+      <nav className={`island ${["brand","ba"].indexOf(activeSection) !== -1 ? "dark" : "light"}`}>
         <span className="nav-full">
           {t.nav.map((item,i) => <a key={i} href={['#hero','#rdv','#sourcils','#levres','#makeup','#nails','#contact'][i]}>{item}</a>)}
         </span>
@@ -1336,8 +1343,8 @@ export default function Home() {
       </footer>
 
       {/* ══ CRÉDIT KLIK ══ */}
-      <div className={`klik-bar ${["brand","ba"].indexOf(activeSection) !== -1 ? "light" : "dark"}`}>
-        <a href="https://klik.dj" target="_blank" rel="noopener noreferrer">
+      <div className={`klik-bar ${["brand","ba"].indexOf(activeSection) !== -1 ? "dark" : "light"}`} style={{opacity: klikVisible ? 1 : 0, visibility: klikVisible ? "visible" : "hidden"}}>
+        <a href="https://klikdj.com/" target="_blank" rel="noopener noreferrer">
           <span className="klik-mark">K</span>
           {lang==='AR' ? 'موقع من إنجاز KLIK' : lang==='EN' ? 'Site by KLIK' : 'Site réalisé par KLIK'}
           <span style={{opacity:0.5}}>| © 2026</span>
