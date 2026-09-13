@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     siteName: 'ADORÉA',
     locale: 'fr_DJ',
     type: 'website',
-    images: [{ url: '/images/hero-main.png', width: 1200, height: 630 }],
+    images: [{ url: '/images/hero-main.webp', width: 1200, height: 630 }],
   },
   robots: { index: true, follow: true },
 }

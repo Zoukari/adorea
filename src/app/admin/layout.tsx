@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -27,12 +27,44 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+  const [authState, setAuthState] = useState<'checking' | 'ok'>('checking')
+
+  // Garde d'authentification côté client
+  useEffect(() => {
+    const supabase = createClient()
+    let alive = true
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!alive) return
+      if (!session) {
+        router.replace(`/login?from=${encodeURIComponent(pathname)}`)
+      } else {
+        setAuthState('ok')
+      }
+    })
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!alive) return
+      if (!session) router.replace('/login')
+    })
+
+    return () => { alive = false; sub.subscription.unsubscribe() }
+  }, [router, pathname])
 
   async function logout() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    router.replace('/login')
+  }
+
+  if (authState === 'checking') {
+    return (
+      <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F2EDE8' }}>
+        <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:22, color:'#8A7A74', letterSpacing:'0.1em' }}>
+          ADORÉA
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -106,38 +106,38 @@ const SERVICES = [
     label:{ FR:'Sourcils PMU', EN:'Brows PMU', AR:'حواجب PMU' },
     desc:{ FR:'Restructuration et définition naturelle du regard. Powder Brows, Combo Brows — résultat naturel et durable.', EN:'Natural brow restructuring. Powder Brows, Combo Brows — lasting results.', AR:'إعادة هيكلة طبيعية للحواجب.' },
     items:[{name:'Powder Brows',devis:false},{name:'Combo Brows',devis:false},{name:'Retouche 1 mois',devis:false},{name:'Retouche annuelle (9–15 mois)',devis:false},{name:'Retouche (après 15 mois)',devis:true}],
-    img:'/images/pmu-brows.png', kw:'PRÉCISION · RÉSULTATS NATURELS', bg:C.noir,
+    img:'/images/pmu-brows.webp', kw:'PRÉCISION · RÉSULTATS NATURELS', bg:C.noir,
   },
   {
     id:'levres', cat:'PMU — Lèvres',
     label:{ FR:'Lèvres PMU', EN:'Lips PMU', AR:'شفاه PMU' },
     desc:{ FR:'Lèvres subtilement colorées et définies — Candy Lips longue tenue.', EN:'Subtly colored and defined lips — Candy Lips, long lasting.', AR:'شفاه محددة ومعرّفة بشكل خفيف.' },
     items:[{name:'Candy Lips',devis:false},{name:'Retouche annuelle (9–15 mois)',devis:false},{name:'Retouche (après 15 mois)',devis:true}],
-    img:'/images/levres-closeup.png', kw:'COLORATION SUBTILE · LONGUE TENUE', bg:C.brun,
+    img:'/images/levres-closeup.webp', kw:'COLORATION SUBTILE · LONGUE TENUE', bg:C.brun,
   },
   {
     id:'makeup', cat:'Makeup Pro',
     label:{ FR:'Makeup Pro', EN:'Pro Makeup', AR:'ميكاب احترافي' },
     desc:{ FR:'Maquillage professionnel pour toutes vos occasions. Du quotidien au mariage.', EN:'Professional makeup for all occasions. From daily to wedding.', AR:'مكياج احترافي لجميع مناسباتك.' },
     items:[{name:'Makeup Jour',devis:false},{name:'Makeup Soirée',devis:false},{name:'Makeup Mariée',devis:false},{name:'Essai Mariée',devis:false},{name:'Shooting / Event',devis:true}],
-    img:'/images/makeup-profile.png', kw:'DES REGARDS QUI MARQUENT', bg:'#120E0A',
+    img:'/images/makeup-profile.webp', kw:'DES REGARDS QUI MARQUENT', bg:'#120E0A',
   },
   {
     id:'nails', cat:'Nails',
     label:{ FR:'Nails', EN:'Nails', AR:'أظافر' },
     desc:{ FR:'Manucure classique, semi-permanent et Nail Art — élégance au bout des ongles.', EN:'Classic manicure, semi-permanent and Nail Art.', AR:'مانيكير كلاسيك، شبه دائم وناي آرت.' },
     items:[{name:'Manucure classique',devis:false},{name:'Semi-Permanent',devis:false},{name:'Semi-Permanent French',devis:false},{name:'Pédicure simple',devis:false},{name:'Pédicure semi-permanent',devis:false},{name:'Nail Art',devis:false}],
-    img:'/images/nails-hero.png', kw:'ÉLÉGANCE AU BOUT DES ONGLES', bg:C.brun,
+    img:'/images/nails-hero.webp', kw:'ÉLÉGANCE AU BOUT DES ONGLES', bg:C.brun,
   },
 ]
 
 // Gallery horizontale scroll
 const GALLERY_ITEMS = [
-  { img:'/images/gallery-makeup.png',  label:'MAKEUP PRO', name:'Pour vos grands moments' },
-  { img:'/images/gallery-levres.png',  label:'LÈVRES PMU', name:'Des lèvres sublimées' },
-  { img:'/images/gallery-nails.png',   label:'NAILS',      name:'Élégance au bout des ongles' },
-  { img:'/images/gallery-sourcils.png',label:'SOURCILS PMU',name:'Précision & savoir-faire' },
-  { img:'/images/hero-main.png',       label:'STUDIO',     name:'ADORÉA Djibouti' },
+  { img:'/images/gallery-makeup.webp',  label:'MAKEUP PRO', name:'Pour vos grands moments' },
+  { img:'/images/gallery-levres.webp',  label:'LÈVRES PMU', name:'Des lèvres sublimées' },
+  { img:'/images/gallery-nails.webp',   label:'NAILS',      name:'Élégance au bout des ongles' },
+  { img:'/images/gallery-sourcils.webp',label:'SOURCILS PMU',name:'Précision & savoir-faire' },
+  { img:'/images/hero-main.webp',       label:'STUDIO',     name:'ADORÉA Djibouti' },
 ]
 
 const HEALTH_ITEMS = {
@@ -147,8 +147,8 @@ const HEALTH_ITEMS = {
 }
 
 const BA = [
-  { label:'Sourcils PMU', before:'/images/ba-before-1.png', after:'/images/ba-after-1.png' },
-  { label:'Lèvres PMU',   before:'/images/ba-after-2.png', after:'/images/ba-before-2.png' },
+  { label:'Sourcils PMU', before:'/images/ba-before-1.webp', after:'/images/ba-after-1.webp' },
+  { label:'Lèvres PMU',   before:'/images/ba-after-2.webp', after:'/images/ba-before-2.webp' },
 ]
 
 const CSS = `
@@ -173,7 +173,11 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 @keyframes marqueeSlide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 /* ── NUMEROS GEANTS DE SECTION (comme Mokary "01 Artisanat") ── */
-.mega-num{display:flex;align-items:baseline;gap:14px;padding:80px 52px 40px}
+.mega-num{display:flex;align-items:baseline;gap:14px;padding:80px 52px 40px;overflow:hidden}
+.mega-num-num,.mega-num-label{display:inline-block;transform:translateY(105%);transition:transform 1.2s cubic-bezier(0.19,1,0.22,1)}
+.mega-num.go .mega-num-num{transform:translateY(0)}
+.mega-num.go .mega-num-label{transform:translateY(0);transition-delay:0.12s}
+.mega-num.rv{opacity:1}
 .mega-num-num{font-family:'Cormorant Garamond',serif;font-size:clamp(80px,12vw,180px);font-weight:300;line-height:0.85;color:transparent;-webkit-text-stroke:1px currentColor;letter-spacing:-0.02em;opacity:0.5}
 .mega-num-label{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.42em;text-transform:uppercase;padding-bottom:16px}
 .mega-num.dark-txt .mega-num-num{color:#0A0807}
@@ -184,9 +188,9 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 
 /* ── CLIP-PATH IMAGE REVEAL (bottom → top, comme Mokary) ── */
 .clip-up{position:relative;overflow:hidden}
-.clip-up img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.15);transition:transform 1.6s cubic-bezier(0.16,1,0.3,1)}
-.clip-up.go img{transform:scale(1)}
-.clip-up::after{content:'';position:absolute;inset:0;background:inherit;transform:translateY(0);transition:transform 1.4s cubic-bezier(0.75,0,0.25,1)}
+.clip-up img{width:100%;height:100%;object-fit:cover;display:block;transform:translateY(18%) scale(1.18);transition:transform 1.5s cubic-bezier(0.19,1,0.22,1)}
+.clip-up.go img{transform:translateY(0) scale(1)}
+.clip-up::after{content:'';position:absolute;inset:0;transform:translateY(0);transition:transform 1.35s cubic-bezier(0.19,1,0.22,1);z-index:1}
 .clip-up.go::after{transform:translateY(101%)}
 .clip-up-dark::after{background:#0A0807}
 .clip-up-cream::after{background:#F4EAD8}
@@ -486,8 +490,11 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 
 /* ── LIGNE REVEAL (masque, style Mokary) ── */
 .line-mask{display:block;overflow:hidden}
-.line-mask-inner{display:block;transform:translateY(105%);transition:transform 1.05s cubic-bezier(0.16,1,0.3,1)}
+.line-mask-inner{display:block;transform:translateY(110%);transition:transform 1.15s cubic-bezier(0.19,1,0.22,1)}
 .line-mask.go .line-mask-inner{transform:translateY(0)}
+/* Le masque ne doit pas fader, seulement slider */
+.line-mask.rv{opacity:1}
+.line-mask.rv:not(.go) .line-mask-inner{transform:translateY(110%)}
 
 /* ── SECTION NUMBER STYLE MOKARY ── */
 .sec-num{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:300;font-style:italic;opacity:0.55;margin-right:10px;letter-spacing:0}
@@ -673,7 +680,7 @@ function useReveal() {
   useEffect(() => {
     const obs = new IntersectionObserver(
       entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('go'); obs.unobserve(e.target) } }),
-      { threshold: 0.08 }
+      { threshold: 0, rootMargin: '0px 0px -12% 0px' }
     )
     document.querySelectorAll('.rv,.rv-l,.rv-r,.clip-reveal,.zoom-reveal,.gold-line,.img-open,.line-mask,.clip-up').forEach(el => obs.observe(el))
     return () => obs.disconnect()
@@ -960,7 +967,7 @@ export default function Home() {
       {/* ══ OPENING ANIMATION (Mokary style) ══ */}
       <div className="opening">
         <div className="opening-logo">
-          <img src="/images/logo-mark.png" alt="" style={{width:96,height:96,objectFit:'contain'}}/>
+          <img src="/images/logo-mark.webp" alt="" style={{width:96,height:96,objectFit:'contain'}}/>
         </div>
         <div className="opening-bar"/>
       </div>
@@ -994,12 +1001,12 @@ export default function Home() {
 
       {/* ══ HERO ══ */}
       <section className="hero" id="hero">
-        <div className="hero-bg"><img src="/images/hero-main.png" alt="ADORÉA"/></div>
+        <div className="hero-bg"><img src="/images/hero-main.webp" alt="ADORÉA"/></div>
         <div className="hero-grad"/>
         <div className="hero-content">
           <div className="hero-logo-wrap">
             <div className="glass-chip" style={{display:'flex',alignItems:'center',gap:14,padding:'10px 20px 10px 10px'}}>
-              <img src="/images/logo-mark.png" alt="ADORÉA logo" style={{width:56,height:56,objectFit:'contain'}}/>
+              <img src="/images/logo-mark.webp" alt="ADORÉA logo" style={{width:56,height:56,objectFit:'contain'}}/>
               <div style={{lineHeight:1}}>
                 <div style={{fontFamily:'Cormorant Garamond,serif',fontSize:20,fontWeight:300,color:C.blanc,letterSpacing:'0.22em',textTransform:'uppercase'}}>ADORÉA</div>
                 <div style={{fontFamily:'Montserrat,sans-serif',fontSize:8,fontWeight:300,color:C.blanc,letterSpacing:'0.22em',textTransform:'uppercase',marginTop:4,opacity:0.6}}>PMU & MAKEUP PRO</div>
@@ -1039,7 +1046,7 @@ export default function Home() {
         </div>
         <div className="brand-inner">
           <div className="brand-img-col clip-up clip-up-cream glass-shimmer">
-            <img src="/images/brand-beige.png" alt="ADORÉA Brand" style={{objectPosition:'center 30%'}}/>
+            <img src="/images/brand-beige.webp" alt="ADORÉA Brand" style={{objectPosition:'center 30%'}}/>
           </div>
           <div className="brand-txt-col">
             <div className="tag rv na" style={{color:C.orFonce}}><SecNum n="01"/>{t.brand_tag}</div>
@@ -1053,7 +1060,7 @@ export default function Home() {
               {t.brand_kw.map((k,i)=><div key={i} className="brand-kw-item">{k}</div>)}
             </div>
             <div className="rv glass-chip-light" style={{transitionDelay:'0.4s',display:'inline-flex',alignItems:'center',gap:12,padding:'12px 18px'}}>
-              <img src="/images/logo-mark.png" alt="" style={{width:24,height:24,objectFit:'contain'}}/>
+              <img src="/images/logo-mark.webp" alt="" style={{width:24,height:24,objectFit:'contain'}}/>
               <span style={{fontFamily:'Montserrat,sans-serif',fontSize:9,fontWeight:500,letterSpacing:'0.2em',color:C.taupe,textTransform:'uppercase'}}>{t.cert}</span>
             </div>
           </div>
@@ -1080,7 +1087,11 @@ export default function Home() {
               <div className="svc-txt-col" style={{background:s.bg}}>
                 <div className="svc-num rv">{String(idx+1).padStart(2,'0')}</div>
                 <div className="svc-cat-lbl rv" style={{transitionDelay:'0.05s'}}>{s.cat}</div>
-                <h3 className="svc-title rv" style={{transitionDelay:'0.1s'}}>{s.label[lang]}</h3>
+                <h3 className="svc-title">
+                  <span className="line-mask rv" style={{transitionDelay:'0.1s'}}>
+                    <span className="line-mask-inner">{s.label[lang]}</span>
+                  </span>
+                </h3>
                 <div className="svc-kwtxt rv" style={{transitionDelay:'0.15s'}}>{s.kw}</div>
                 <p className="svc-desc rv" style={{transitionDelay:'0.2s'}}>{s.desc[lang]}</p>
                 <div className="svc-list rv" style={{transitionDelay:'0.25s'}}>
@@ -1200,7 +1211,7 @@ export default function Home() {
       <footer className="footer">
         <div className="footer-top">
           <div style={{display:'flex',alignItems:'center',gap:14}}>
-            <img src="/images/logo-mark.png" alt="ADORÉA" style={{width:46,height:46,objectFit:'contain'}}/>
+            <img src="/images/logo-mark.webp" alt="ADORÉA" style={{width:46,height:46,objectFit:'contain'}}/>
             <div style={{lineHeight:1}}>
               <div style={{fontFamily:'Cormorant Garamond,serif',fontSize:20,fontWeight:300,color:C.blanc,letterSpacing:'0.22em',textTransform:'uppercase'}}>ADORÉA</div>
               <div style={{fontFamily:'Montserrat,sans-serif',fontSize:8,fontWeight:300,color:C.blanc,letterSpacing:'0.2em',textTransform:'uppercase',marginTop:3,opacity:0.5}}>PMU & MAKEUP PRO</div>
