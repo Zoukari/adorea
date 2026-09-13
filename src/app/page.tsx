@@ -19,6 +19,7 @@ type Lang = 'FR' | 'EN' | 'AR'
 const T = {
   FR: {
     nav: ['Accueil','Rendez-vous','Sourcils','Lèvres','Makeup','Nails','Contact'],
+    navShort: ['Accueil','Rendez-vous','Prestations','Contact'],
     cert: 'Certified Belgium',
     tagline: 'BEAUTY · CONFIDENCE · YOU',
     h1a: 'Révèle ta beauté,',
@@ -48,6 +49,7 @@ const T = {
   },
   EN: {
     nav: ['Home','Book','Brows','Lips','Makeup','Nails','Contact'],
+    navShort: ['Home','Book','Services','Contact'],
     cert: 'Certified Belgium',
     tagline: 'BEAUTY · CONFIDENCE · YOU',
     h1a: 'Reveal your beauty,', h1b: 'affirm your confidence',
@@ -74,6 +76,7 @@ const T = {
   },
   AR: {
     nav: ['الرئيسية','حجز','الحواجب','الشفاه','ميكاب','أظافر','تواصل'],
+    navShort: ['الرئيسية','حجز','خدماتنا','تواصل'],
     cert: 'معتمد بلجيكيًا',
     tagline: 'جمال · ثقة · أنتِ',
     h1a: 'اكشفي جمالك،', h1b: 'أكدي ثقتك بنفسك',
@@ -238,6 +241,15 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 /* LIGHT: sur fond crème (brand, ba) — inversion complete */
 .island.light{background:rgba(255,251,244,0.92);border:1.5px solid rgba(28,20,16,0.15);box-shadow:0 10px 40px rgba(28,20,16,0.15)}
 .island a,.island a:link,.island a:visited{text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:400;letter-spacing:0.09em;padding:6px 12px;border-radius:50px;white-space:nowrap;transition:color 0.5s ease,background 0.25s ease;flex-shrink:0}
+.nav-full{display:flex;gap:1px}
+.nav-short{display:none}
+
+/* ── KLIK CREDIT ── */
+.klik-bar{background:#0A0807;border-top:1px solid rgba(201,169,106,0.07);padding:18px 52px 110px;display:flex;align-items:center;justify-content:center}
+.klik-bar a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:300;letter-spacing:0.12em;color:rgba(250,246,240,0.25);transition:color 0.25s}
+.klik-bar a:hover{color:#C9A96A}
+.klik-mark{width:22px;height:22px;border-radius:6px;background:rgba(201,169,106,0.1);border:1px solid rgba(201,169,106,0.22);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:12px;color:#C9A96A;transition:all 0.25s}
+.klik-bar a:hover .klik-mark{background:#C9A96A;color:#0A0807;border-color:#C9A96A}
 .island.dark a,.island.dark a:link,.island.dark a:visited{color:rgba(250,246,240,0.55)}
 .island.light a,.island.light a:link,.island.light a:visited{color:rgba(28,20,16,0.65)}
 .island.dark a:hover,.island.dark a.on{background:rgba(201,169,106,0.2);color:#F4EAD8}
@@ -548,7 +560,11 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
   .contact-h{font-size:38px}
   .footer{padding:40px 22px 32px}
   .island{bottom:12px;left:12px;right:12px;transform:none;max-width:none;width:auto;padding:6px;justify-content:space-between;border-radius:18px;gap:2px}
-  .island a{font-size:9px;padding:8px 4px;flex:1;text-align:center;letter-spacing:0.02em;border-radius:12px}
+  .island a{font-size:10px;padding:9px 4px;flex:1;text-align:center;letter-spacing:0.01em;border-radius:12px}
+  .nav-full{display:none}
+  .nav-short{display:flex;width:100%;gap:2px}
+  .klik-bar{padding:16px 22px 96px}
+  .klik-bar a{font-size:9px;letter-spacing:0.08em}
   .toggles-right{bottom:76px;right:12px;left:auto;gap:6px;flex-direction:row;align-items:center}
   [dir=rtl] .toggles-right{left:12px;right:auto}
   .wa-fab{bottom:76px;left:12px;right:auto;width:42px;height:42px}
@@ -1065,7 +1081,12 @@ export default function Home() {
 
       {/* ── ISLAND NAV ── */}
       <nav className={`island ${["brand","ba"].indexOf(activeSection) !== -1 ? "light" : "dark"}`}>
-        {t.nav.map((item,i) => <a key={i} href={['#hero','#rdv','#sourcils','#levres','#makeup','#nails','#contact'][i]}>{item}</a>)}
+        <span className="nav-full">
+          {t.nav.map((item,i) => <a key={i} href={['#hero','#rdv','#sourcils','#levres','#makeup','#nails','#contact'][i]}>{item}</a>)}
+        </span>
+        <span className="nav-short">
+          {t.navShort.map((item,i) => <a key={i} href={['#hero','#rdv','#services','#contact'][i]}>{item}</a>)}
+        </span>
       </nav>
 
       {/* ── WA FAB ── */}
@@ -1307,6 +1328,15 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* ══ CRÉDIT KLIK ══ */}
+      <div className="klik-bar">
+        <a href="https://klik.dj" target="_blank" rel="noopener noreferrer">
+          <span className="klik-mark">K</span>
+          {lang==='AR' ? 'موقع من إنجاز KLIK' : lang==='EN' ? 'Site by KLIK' : 'Site réalisé par KLIK'}
+          <span style={{opacity:0.5}}>| © 2026</span>
+        </a>
+      </div>
 
       {booking && <BookingModal lang={lang} onClose={()=>setBooking(false)}/>}
     </div>
