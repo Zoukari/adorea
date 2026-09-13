@@ -68,17 +68,58 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:'#F2EDE8' }}>
+    <div className="admin-shell" style={{ display:'flex', minHeight:'100vh', background:'#F2EDE8' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Manrope:wght@400;500;600&display=swap');
         .nav-link { display:flex; align-items:center; gap:10px; padding:10px 16px; border-radius:14px; text-decoration:none; font-size:13px; font-weight:400; transition:all 0.2s ease; margin:2px 8px; white-space:nowrap; }
         .nav-link:hover { background:rgba(201,169,106,0.1); color:#C9A96A; }
         .nav-link.active { background:rgba(201,169,106,0.15); color:#C9A96A; font-weight:500; }
         .nav-link .ico { font-size:16px; flex-shrink:0; }
+
+        /* ===== RESPONSIVE : sidebar -> navbar horizontale ===== */
+        @media (max-width: 900px) {
+          .admin-shell { flex-direction: column; }
+          .admin-aside {
+            position: static !important;
+            width: 100% !important;
+            border-radius: 0 0 20px 20px !important;
+            box-shadow: 0 4px 20px rgba(26,26,26,0.18) !important;
+          }
+          .admin-aside-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 18px !important;
+          }
+          .admin-nav {
+            flex-direction: row !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            padding: 8px 10px !important;
+            gap: 4px;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+          }
+          .admin-nav::-webkit-scrollbar { display: none; }
+          .admin-nav .nav-link {
+            flex-direction: column; gap: 4px;
+            padding: 8px 12px !important; margin: 0 !important;
+            font-size: 10px !important; min-width: 64px;
+            justify-content: center !important;
+          }
+          .admin-nav .nav-link .ico { font-size: 17px; }
+          .admin-collapse { display: none !important; }
+          .admin-logout {
+            border-top: none !important; border-left: 1px solid rgba(255,255,255,0.1) !important;
+            padding: 8px 14px !important; font-size: 11px !important;
+            flex-direction: column !important; gap: 3px !important;
+          }
+          .admin-main { margin-left: 0 !important; }
+          .admin-content { padding: 12px 12px 40px !important; }
+          .admin-card { border-radius: 18px !important; min-height: auto !important; }
+        }
       `}</style>
 
       {/* SIDEBAR */}
-      <aside style={{
+      <aside className="admin-aside" style={{
         width: collapsed ? 68 : 224,
         background: T.black,
         display:'flex', flexDirection:'column',
@@ -89,7 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         boxShadow:'4px 0 24px rgba(26,26,26,0.15)',
       }}>
         {/* Logo */}
-        <div style={{ padding: collapsed ? '28px 16px' : '28px 20px', borderBottom:'1px solid rgba(255,255,255,0.07)', flexShrink:0 }}>
+        <div className="admin-aside-head" style={{ padding: collapsed ? '28px 16px' : '28px 20px', borderBottom:'1px solid rgba(255,255,255,0.07)', flexShrink:0 }}>
           {!collapsed && (
             <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:22, color:T.offwhite, fontWeight:300, letterSpacing:'0.02em' }}>ADORÉA</div>
           )}
@@ -100,7 +141,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Nav */}
-        <nav style={{ flex:1, padding:'10px 0', overflowY:'auto', overflowX:'hidden', scrollbarWidth:'none' }}>
+        <nav className="admin-nav" style={{ flex:1, display:'flex', flexDirection:'column', padding:'10px 0', overflowY:'auto', overflowX:'hidden', scrollbarWidth:'none' }}>
           {NAV.map(item => {
             const active = item.href === '/admin'
               ? pathname === '/admin'
@@ -117,7 +158,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         {/* Logout */}
-        <button onClick={logout} style={{
+        <button onClick={logout} className="admin-logout" style={{
           background:'transparent', border:'none', cursor:'pointer',
           padding: collapsed ? '14px 0' : '14px 20px', color:'rgba(255,255,255,0.5)',
           fontSize:12, borderTop:'1px solid rgba(255,255,255,0.06)',
@@ -133,7 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </button>
 
         {/* Collapse */}
-        <button onClick={() => setCollapsed(c => !c)} style={{
+        <button onClick={() => setCollapsed(c => !c)} className="admin-collapse" style={{
           background:'transparent', border:'none', cursor:'pointer',
           padding:'16px', color:T.muted, fontSize:18, borderTop:'1px solid rgba(255,255,255,0.06)',
           display:'flex', alignItems:'center', justifyContent: collapsed ? 'center' : 'flex-end',
@@ -145,7 +186,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* MAIN */}
-      <main style={{
+      <main className="admin-main" style={{
         flex:1,
         marginLeft: collapsed ? 68 : 224,
         transition:'margin-left 0.25s cubic-bezier(0.25,0.46,0.45,0.94)',
@@ -153,9 +194,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         background:'#F2EDE8',
       }}>
         {/* Content wrapper avec padding et coins arrondis visuels */}
-        <div style={{ padding:'20px 20px 80px', minHeight:'100vh' }}>
+        <div className="admin-content" style={{ padding:'20px 20px 80px', minHeight:'100vh' }}>
           <AdminDiagnostic />
-          <div style={{
+          <div className="admin-card" style={{
             background:T.offwhite, borderRadius:24,
             minHeight:'calc(100vh - 40px)',
             boxShadow:'0 2px 16px rgba(26,26,26,0.06)',

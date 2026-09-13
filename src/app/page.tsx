@@ -157,13 +157,18 @@ const CSS = `
 html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
-/* ── OPENING ANIMATION (comme Mokary) ── */
-.opening{position:fixed;inset:0;z-index:999;background:#0A0807;display:flex;align-items:center;justify-content:center;pointer-events:none;animation:openingFade 2.2s cubic-bezier(0.75,0,0.25,1) forwards}
-.opening-logo{opacity:0;transform:scale(0.92);animation:openingLogoIn 1.2s 0.25s cubic-bezier(0.16,1,0.3,1) forwards}
-.opening-bar{position:absolute;bottom:0;left:0;right:0;height:100%;background:#0A0807;transform:translateY(0);animation:openingBar 1.1s 1.1s cubic-bezier(0.75,0,0.25,1) forwards}
-@keyframes openingLogoIn{to{opacity:1;transform:scale(1)}}
-@keyframes openingBar{to{transform:translateY(-100%)}}
-@keyframes openingFade{0%,80%{opacity:1;pointer-events:all}100%{opacity:0;pointer-events:none;visibility:hidden}}
+/* ── OPENING ANIMATION 3s (Mokary style) ── */
+.opening{position:fixed;inset:0;z-index:999;background:#0A0807;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;animation:openingOut 0.7s 2.5s cubic-bezier(0.76,0,0.24,1) forwards}
+.opening-logo{opacity:0;transform:scale(0.88);animation:openLogo 1.1s 0.15s cubic-bezier(0.19,1,0.22,1) forwards}
+.opening-name{overflow:hidden}
+.opening-name span{display:block;font-family:'Cormorant Garamond',serif;font-size:clamp(26px,5vw,40px);font-weight:300;letter-spacing:0.3em;color:#FAF6F0;text-transform:uppercase;transform:translateY(110%);animation:openSlide 0.9s 0.95s cubic-bezier(0.19,1,0.22,1) forwards}
+.opening-sub{overflow:hidden}
+.opening-sub span{display:block;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:300;letter-spacing:0.42em;color:#C9A96A;text-transform:uppercase;transform:translateY(110%);animation:openSlide 0.9s 1.35s cubic-bezier(0.19,1,0.22,1) forwards}
+.opening-cert{overflow:hidden;margin-top:6px}
+.opening-cert span{display:block;font-family:'Montserrat',sans-serif;font-size:9px;font-weight:300;letter-spacing:0.3em;color:rgba(250,246,240,0.4);text-transform:uppercase;transform:translateY(110%);animation:openSlide 0.9s 1.7s cubic-bezier(0.19,1,0.22,1) forwards}
+@keyframes openLogo{to{opacity:1;transform:scale(1)}}
+@keyframes openSlide{to{transform:translateY(0)}}
+@keyframes openingOut{to{opacity:0;visibility:hidden;pointer-events:none}}
 
 /* ── MARQUEE DEFILANT (comme Mokary) ── */
 .marquee{overflow:hidden;background:transparent;padding:14px 0;position:relative;border-top:1px solid rgba(201,169,106,0.12);border-bottom:1px solid rgba(201,169,106,0.12)}
@@ -326,11 +331,15 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .gallery-track-wrap::before,.gallery-track-wrap::after{content:'';position:absolute;top:0;bottom:0;width:80px;z-index:2;pointer-events:none}
 .gallery-track-wrap::before{left:0;background:linear-gradient(to right,#0A0807,transparent)}
 .gallery-track-wrap::after{right:0;background:linear-gradient(to left,#0A0807,transparent)}
-.gallery-track{display:flex;gap:14px;padding:0 52px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;cursor:grab;user-select:none;-webkit-overflow-scrolling:touch}
+.gallery-track{display:flex;gap:18px;padding:0 52px;overflow-x:auto;scrollbar-width:none;cursor:grab;user-select:none;-webkit-overflow-scrolling:touch;scroll-behavior:auto}
 .gallery-track::-webkit-scrollbar{display:none}
 .gallery-track.dragging{cursor:grabbing}
-.gallery-card{flex:0 0 250px;scroll-snap-align:start;position:relative;border-radius:18px;overflow:hidden;transition:transform 0.4s cubic-bezier(0.16,1,0.3,1)}
+.gallery-card{flex:0 0 calc((100% - 140px) / 3);scroll-snap-align:start;position:relative;border-radius:20px;overflow:hidden;transition:transform 0.4s cubic-bezier(0.16,1,0.3,1)}
 .gallery-card:hover{transform:scale(1.02)}
+.gallery-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:44px;height:44px;border-radius:50%;background:rgba(10,8,7,0.75);backdrop-filter:blur(14px);border:1px solid rgba(201,169,106,0.3);color:#C9A96A;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;font-family:'Cormorant Garamond',serif}
+.gallery-arrow:hover{background:rgba(201,169,106,0.9);color:#0A0807;border-color:#C9A96A}
+.gallery-arrow.left{left:14px}
+.gallery-arrow.right{right:14px}
 .gallery-card img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;transition:transform 0.8s cubic-bezier(0.16,1,0.3,1);filter:brightness(0.7) saturate(0.85)}
 .gallery-card:hover img{transform:scale(1.06);filter:brightness(0.88) saturate(1)}
 .gallery-card-over{position:absolute;bottom:0;left:0;right:0;padding:18px 14px;background:linear-gradient(to top,rgba(10,8,7,0.88) 0%,transparent 100%)}
@@ -538,10 +547,19 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
   .contact-sec{padding:64px 22px}
   .contact-h{font-size:38px}
   .footer{padding:40px 22px 32px}
-  .island{bottom:12px;left:12px;right:auto;transform:none;max-width:calc(100vw - 86px);padding:6px 10px;justify-content:flex-start}
-  .island a{font-size:10px;padding:6px 10px}
-  .toggles-right{bottom:70px;right:12px;gap:6px}
-  .wa-fab{bottom:12px;right:12px;width:44px;height:44px}
+  .island{bottom:12px;left:12px;right:12px;transform:none;max-width:none;width:auto;padding:6px;justify-content:space-between;border-radius:18px;gap:2px}
+  .island a{font-size:9px;padding:8px 4px;flex:1;text-align:center;letter-spacing:0.02em;border-radius:12px}
+  .toggles-right{bottom:76px;right:12px;left:auto;gap:6px;flex-direction:row;align-items:center}
+  [dir=rtl] .toggles-right{left:12px;right:auto}
+  .wa-fab{bottom:76px;left:12px;right:auto;width:42px;height:42px}
+  [dir=rtl] .wa-fab{left:auto;right:12px}
+  .lang-dropdown{bottom:auto;top:calc(100% + 8px);right:0}
+  [dir=rtl] .lang-dropdown{right:auto;left:0}
+  .gallery-card{flex:0 0 calc((100% - 36px) / 2)}
+  .gallery-track{padding:0 22px;gap:12px}
+  .gallery-arrow{width:36px;height:36px;font-size:18px}
+  .gallery-arrow.left{left:6px}
+  .gallery-arrow.right{right:6px}
   .modal{padding:24px 18px 44px}
 }`
 
@@ -603,40 +621,86 @@ function GalleryScroll({ items }: { items: typeof GALLERY_ITEMS }) {
   const drag = useRef(false)
   const startX = useRef(0)
   const scrollStart = useRef(0)
+  const moved = useRef(false)
 
-  const onMouseDown = (e: React.MouseEvent) => {
+  // Triple la liste pour un défilement infini fluide
+  const loop = [...items, ...items, ...items]
+  const N = items.length
+
+  // Largeur d'une carte + gap, mesurée sur le DOM
+  const step = () => {
+    const el = trackRef.current?.querySelector('.gallery-card') as HTMLElement | null
+    if (!el) return 300
+    const gap = parseFloat(getComputedStyle(trackRef.current!).gap || '16')
+    return el.offsetWidth + gap
+  }
+
+  // Démarre au milieu (2e copie) pour pouvoir aller dans les deux sens
+  useEffect(() => {
+    const t = trackRef.current
+    if (!t) return
+    const id = requestAnimationFrame(() => { t.scrollLeft = step() * N })
+    return () => cancelAnimationFrame(id)
+  }, [N])
+
+  // Recentre silencieusement quand on sort de la copie du milieu
+  const normalize = () => {
+    const t = trackRef.current
+    if (!t) return
+    const s = step()
+    const block = s * N
+    if (t.scrollLeft < block * 0.5) t.scrollLeft += block
+    else if (t.scrollLeft > block * 1.5) t.scrollLeft -= block
+  }
+
+  const onScroll = () => {
+    const t = trackRef.current
+    if (!t) return
+    normalize()
+    const idx = Math.round(t.scrollLeft / step()) % N
+    setActive((idx + N) % N)
+  }
+
+  const onDown = (x: number) => {
     drag.current = true
-    startX.current = e.clientX
+    moved.current = false
+    startX.current = x
     scrollStart.current = trackRef.current?.scrollLeft || 0
     trackRef.current?.classList.add('dragging')
   }
-  const onMouseMove = (e: React.MouseEvent) => {
+  const onMove = (x: number) => {
     if (!drag.current || !trackRef.current) return
-    trackRef.current.scrollLeft = scrollStart.current - (e.clientX - startX.current)
+    const d = x - startX.current
+    if (Math.abs(d) > 4) moved.current = true
+    trackRef.current.scrollLeft = scrollStart.current - d
   }
-  const onMouseUp = () => {
+  const onUp = () => {
     drag.current = false
     trackRef.current?.classList.remove('dragging')
   }
-  const onScroll = () => {
-    if (!trackRef.current) return
-    const idx = Math.round(trackRef.current.scrollLeft / 276)
-    setActive(Math.min(idx, items.length - 1))
-  }
-  const scrollTo = (i: number) => {
-    trackRef.current?.scrollTo({ left: i * 276, behavior: 'smooth' })
-    setActive(i)
+
+  const go = (dir: -1 | 1) => {
+    trackRef.current?.scrollBy({ left: dir * step(), behavior: 'smooth' })
   }
 
   return (
     <div className="gallery-track-wrap">
+      <button className="gallery-arrow left" onClick={() => go(-1)} aria-label="Précédent">‹</button>
+      <button className="gallery-arrow right" onClick={() => go(1)} aria-label="Suivant">›</button>
+
       <div className="gallery-track" ref={trackRef}
-        onMouseDown={onMouseDown} onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+        onMouseDown={e => onDown(e.clientX)}
+        onMouseMove={e => onMove(e.clientX)}
+        onMouseUp={onUp} onMouseLeave={onUp}
+        onTouchStart={e => onDown(e.touches[0].clientX)}
+        onTouchMove={e => onMove(e.touches[0].clientX)}
+        onTouchEnd={onUp}
         onScroll={onScroll}>
-        {items.map((item, i) => (
+        {loop.map((item, i) => (
           <div key={i} className="gallery-card glass-shimmer">
-            <img src={item.img} alt={item.name} draggable={false} style={{objectPosition: item.img.includes('gallery-makeup') ? 'center 60%' : 'top'}} />
+            <img src={item.img} alt={item.name} draggable={false}
+              loading="lazy"
+              style={{objectPosition: item.img.includes('gallery-makeup') ? 'center 60%' : 'top'}} />
             <div className="gallery-card-over">
               <div className="gallery-card-tag">{item.label}</div>
               <div className="gallery-card-name">{item.name}</div>
@@ -644,8 +708,16 @@ function GalleryScroll({ items }: { items: typeof GALLERY_ITEMS }) {
           </div>
         ))}
       </div>
+
       <div className="gallery-dots">
-        {items.map((_, i) => <div key={i} className={`gallery-dot${active===i?' on':''}`} onClick={() => scrollTo(i)} />)}
+        {items.map((_, i) => (
+          <div key={i} className={`gallery-dot${active===i?' on':''}`}
+            onClick={() => {
+              const t = trackRef.current
+              if (!t) return
+              t.scrollTo({ left: step() * (N + i), behavior: 'smooth' })
+            }} />
+        ))}
       </div>
     </div>
   )
@@ -964,12 +1036,14 @@ export default function Home() {
     <div dir={dir}>
       <style>{CSS}</style>
 
-      {/* ══ OPENING ANIMATION (Mokary style) ══ */}
+      {/* ══ OPENING ANIMATION 3s ══ */}
       <div className="opening">
         <div className="opening-logo">
-          <img src="/images/logo-mark.webp" alt="" style={{width:96,height:96,objectFit:'contain'}}/>
+          <img src="/images/logo-mark.webp" alt="" style={{width:110,height:110,objectFit:'contain'}}/>
         </div>
-        <div className="opening-bar"/>
+        <div className="opening-name"><span>Adoréa</span></div>
+        <div className="opening-sub"><span>PMU &amp; Makeup Pro</span></div>
+        <div className="opening-cert"><span>Certified Belgium · Djibouti</span></div>
       </div>
 
       {/* ── TOGGLES DROITE ── */}
