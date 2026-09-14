@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
         payment_method: data.payment_method,
         payment_status: 'en_attente',
         reference,
-        source: 'site',
+        is_walkin: false,
         health_validated: hasCI ? null : true,
       }).select('id, reference, heure_debut, heure_fin, prix_final').single()
 

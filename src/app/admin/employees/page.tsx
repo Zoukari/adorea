@@ -107,9 +107,22 @@ export default function EmployeesPage() {
   }, {})
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+    <>
+    <style>{`
+      @media (max-width: 820px) {
+        .em-shell { flex-direction: column; height: auto !important; overflow: visible !important; }
+        .em-list { width: 100% !important; border-right: none !important;
+                   border-bottom: 1px solid #EADCC8; }
+        .em-list.hide-mob { display: none !important; }
+        .em-detail { display: none; width: 100% !important; }
+        .em-detail.show-mob { display: block !important; }
+        .em-back { display: inline-flex !important; }
+      }
+      .em-back { display: none; }
+    `}</style>
+    <div className="em-shell" style={{ display:'flex', height:'100%', minHeight:'70vh', overflow:'hidden' }}>
       {/* LEFT — Liste */}
-      <div style={{ width:300, background:'white', borderRight:`1px solid ${T.beige}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
+      <div className={`em-list${(selected||adding)?' hide-mob':''}`} style={{ width:300, background:'white', borderRight:`1px solid ${T.beige}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
         <div style={{ padding:'24px 20px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${T.beige}` }}>
           <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:24, fontWeight:300 }}>Équipe</h1>
           <button onClick={() => { setAdding(true); setSelected(null); setForm(EMPTY_EMP) }} style={{
@@ -144,7 +157,11 @@ export default function EmployeesPage() {
       </div>
 
       {/* RIGHT — Détail / Formulaire */}
-      <div style={{ flex:1, overflowY:'auto', background:T.offwhite }}>
+      <div className={`em-detail${(selected||adding)?' show-mob':''}`} style={{ flex:1, overflowY:'auto', background:T.offwhite }}>
+        {(selected||adding) && (
+          <button className="em-back b-ghost" style={{ margin:'16px 0 0 16px' }}
+            onClick={()=>{ setSelected(null); setAdding(false) }}>← Équipe</button>
+        )}
         {!selected && !adding && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:T.muted, fontSize:13 }}>
             Sélectionner un membre de l&apos;équipe
@@ -297,5 +314,6 @@ export default function EmployeesPage() {
         )}
       </div>
     </div>
+    </>
   )
 }

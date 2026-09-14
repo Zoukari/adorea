@@ -95,6 +95,23 @@ export default function CaissePage() {
 
   useEffect(() => { load() }, [load])
 
+  // Le catalogue se rafraîchit en revenant sur l'onglet ou sur la page
+  useEffect(() => {
+    if (tab === 'vente') load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onFocus)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('focus', onFocus)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const loadAppts = useCallback(async () => {
     const { data } = await supabase.from('appointments')
       .select('id,date_rdv,heure_debut,statut,service_id,prix_final,payment_status,reference,client:clients(nom,prenom,telephone),service:services(nom_fr,duree_minutes)')
@@ -116,6 +133,12 @@ export default function CaissePage() {
 
   useEffect(() => { if (tab==='rdv') loadAppts() }, [tab, loadAppts])
   useEffect(() => { if (tab==='cloture') loadCloture() }, [tab, loadCloture])
+
+  // Après modification d'un RDV, les montants de clôture sont recalculés
+  useEffect(() => {
+    if (!editAppt && tab==='cloture') loadCloture()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editAppt])
 
   // ── Panier ──
   const add = (s: Service) => setLines(l => {
@@ -205,14 +228,23 @@ export default function CaissePage() {
     const dur = svc?.duree_minutes || 60
     const [h,m] = editAppt.heure_debut.split(':').map(Number)
     const end = h*60+m+dur
+    const nouveauPrix = Number(editAppt.prix_final||0)
+
     await supabase.from('appointments').update({
       service_id: editAppt.service_id,
       date_rdv: editAppt.date_rdv,
       heure_debut: editAppt.heure_debut + ':00',
       heure_fin: `${String(Math.floor(end/60)%24).padStart(2,'0')}:${String(end%60).padStart(2,'0')}:00`,
-      prix_final: Number(editAppt.prix_final||0),
+      prix_final: nouveauPrix,
     }).eq('id', editAppt.id)
-    setSavingAppt(false); setEditAppt(null); loadAppts()
+
+    // Le paiement déjà encaissé doit suivre le nouveau prix (clôture, compta)
+    await supabase.from('payments')
+      .update({ montant: nouveauPrix })
+      .eq('appointment_id', editAppt.id)
+
+    setSavingAppt(false); setEditAppt(null)
+    loadAppts(); loadCloture()
   }
 
   async function markPaid(a: Appt) {
@@ -260,9 +292,14 @@ export default function CaissePage() {
           <h1>Caisse</h1>
           <div className="sub">{new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
         </div>
-        {lines.length>0 && (
-          <button className="b-ghost" onClick={()=>setLines([])}>Vider ({lines.length})</button>
-        )}
+        <div style={{ display:'flex', gap:8 }}>
+          {tab==='vente' && (
+            <button className="b-ghost" onClick={load} title="Recharger les prestations">↻</button>
+          )}
+          {lines.length>0 && (
+            <button className="b-ghost" onClick={()=>setLines([])}>Vider ({lines.length})</button>
+          )}
+        </div>
       </div>
 
       <div className="tabs">

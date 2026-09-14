@@ -1067,7 +1067,8 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
           SLOT_TAKEN: lang==='FR' ? 'Ce créneau vient d\'être pris. Choisissez-en un autre.' : 'This slot was just taken.',
           OUTSIDE_HOURS: lang==='FR' ? 'Ce créneau est en dehors des horaires d\'ouverture.' : 'Outside opening hours.',
         }
-        setSubmitErr(map[out.error] || (lang==='FR' ? 'Une erreur est survenue. Réessayez.' : 'An error occurred.'))
+        setSubmitErr(map[out.error] ||
+          `${lang==='FR' ? 'Erreur' : 'Error'} : ${out.detail || out.error || 'inconnue'}`)
         waTab?.close()
         setSubmitting(false)
         return

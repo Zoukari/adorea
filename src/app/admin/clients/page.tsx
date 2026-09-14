@@ -117,6 +117,14 @@ export default function ClientsPage() {
         .cl-back { display: flex !important; }
       }
       .cl-back { display: none; }
+      .cl-actions { min-width: 0; }
+      .cl-actions button, .cl-actions a { white-space: nowrap; }
+      @media (max-width: 640px) {
+        .cl-pane { padding: 18px 14px 40px !important; }
+        .cl-head h2 { font-size: 24px !important; }
+        .cl-actions { width: 100%; }
+        .cl-actions button, .cl-actions a { flex: 1 1 auto; justify-content: center; font-size: 11px; padding: 9px 12px; }
+      }
     `}</style>
     <div className="cl-shell" style={{ display:'flex', height:'100%', minHeight:'70vh', overflow:'hidden' }}>
       {/* LEFT — Liste */}
@@ -259,9 +267,9 @@ export default function ClientsPage() {
 
         {/* FICHE CLIENTE */}
         {selected && !creating && (
-          <div style={{ padding:40, maxWidth:800 }}>
+          <div className="cl-pane" style={{ padding:40, maxWidth:800 }}>
             {/* Header cliente */}
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:28 }}>
+            <div className="cl-head" style={{ display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:28, gap:14, flexWrap:'wrap' }}>
               <div>
                 <h2 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:32, fontWeight:300, color:T.black }}>
                   {selected.prenom} {selected.nom}
