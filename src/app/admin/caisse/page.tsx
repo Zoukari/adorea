@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { Service, Category, Employee, Client } from '@/types'
+import PhoneInput from '@/components/PhoneInput'
 
 const T = { gold:'#C9A96A', black:'#1A1A1A', muted:'#8A7A74' }
 const FDJ = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FDJ'
@@ -12,7 +13,10 @@ const iso = (d: Date) => {
 const METHODS = ['cash','cac_pay','waafi','d_money'] as const
 const M_LABEL: Record<string,string> = { cash:'Cash', cac_pay:'CAC PAY', waafi:'WAAFI', d_money:'D-Money' }
 
-type Line = { service: Service; qty: number }
+const waLink = (tel: string, msg: string) =>
+  `https://wa.me/${tel.replace(/[^\d]/g,'')}?text=${encodeURIComponent(msg)}`
+
+type Line = { service: Service; qty: number; customPrice?: number }
 type Appt = {
   id: string; date_rdv: string; heure_debut: string; statut: string
   prix_final: number; payment_status: string; reference: string
@@ -39,6 +43,10 @@ export default function CaissePage() {
   const [nom, setNom] = useState('')
   const [prenom, setPrenom] = useState('')
   const [foundClient, setFound] = useState<Client | null>(null)
+  const [results, setResults] = useState<Client[]>([])
+  const [searching, setSearching] = useState(false)
+  const [createMode, setCreateMode] = useState(false)
+  const [clientQuery, setClientQuery] = useState('')
   const [paying, setPaying] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -49,7 +57,7 @@ export default function CaissePage() {
   // Clôture
   const [dayPayments, setDayPayments] = useState<{montant:number;methode:string}[]>([])
   const [closeOpen, setCloseOpen] = useState(false)
-  const [cashReel, setCashReel] = useState('')
+  const [counted, setCounted] = useState<Record<string,string>>({})
   const [closeNote, setCloseNote] = useState('')
   const [closedToday, setClosedToday] = useState<{cash_theorique:number;cash_reel:number;ecart:number}|null>(null)
   const [closing, setClosing] = useState(false)
@@ -104,17 +112,32 @@ export default function CaissePage() {
   const setQty = (id: string, q: number) =>
     setLines(l => q<=0 ? l.filter(x=>x.service.id!==id) : l.map(x=>x.service.id===id?{...x,qty:q}:x))
 
-  const subtotal = lines.reduce((a,l)=>a + (l.service.prix_sur_devis?0:l.service.prix)*l.qty, 0)
+  const linePrice = (l: Line) =>
+    l.service.prix_sur_devis ? (l.customPrice ?? 0) : l.service.prix
+  const subtotal = lines.reduce((a,l)=>a + linePrice(l)*l.qty, 0)
   const disc = Number(discount||0)
   const total = Math.max(0, subtotal - disc)
-  const hasDevis = lines.some(l=>l.service.prix_sur_devis)
+  const devisManquant = lines.some(l=>l.service.prix_sur_devis && !l.customPrice)
 
-  async function lookupPhone(v: string) {
-    setPhone(v)
-    if (v.length < 6) { setFound(null); return }
-    const { data } = await supabase.from('clients').select('*').eq('telephone', v).maybeSingle()
-    if (data) { const c = data as Client; setFound(c); setNom(c.nom); setPrenom(c.prenom) }
-    else setFound(null)
+  async function searchClient(q: string) {
+    if (q.trim().length < 2) { setResults([]); return }
+    setSearching(true)
+    const digits = q.replace(/[^\d]/g, '')
+    const { data } = await supabase.from('clients').select('*')
+      .or(`nom.ilike.%${q}%,prenom.ilike.%${q}%${digits.length>=3 ? `,telephone.ilike.%${digits}%` : ''}`)
+      .limit(8)
+    setResults((data as Client[]) || [])
+    setSearching(false)
+  }
+
+  function pickClient(c: Client) {
+    setFound(c); setPhone(c.telephone); setNom(c.nom); setPrenom(c.prenom)
+    setResults([]); setClientQuery(''); setCreateMode(false)
+  }
+
+  function resetClient() {
+    setFound(null); setPhone(''); setNom(''); setPrenom('')
+    setResults([]); setClientQuery(''); setCreateMode(false)
   }
 
   async function encaisser() {
@@ -134,7 +157,7 @@ export default function CaissePage() {
       for (const l of lines) {
         const dur = l.service.duree_minutes || 60
         const end = new Date(now.getTime() + dur*60000).toTimeString().slice(0,8)
-        const share = subtotal>0 ? ((l.service.prix_sur_devis?0:l.service.prix)*l.qty/subtotal)*total : 0
+        const share = subtotal>0 ? (linePrice(l)*l.qty/subtotal)*total : 0
         const { data: ap } = await supabase.from('appointments').insert({
           client_id: clientId, service_id: l.service.id, employee_id: empId || null,
           date_rdv: today, heure_debut: h, heure_fin: end,
@@ -169,15 +192,23 @@ export default function CaissePage() {
   const theorique = dayPayments.filter(p=>p.methode==='cash').reduce((a,p)=>a+Number(p.montant),0)
   const totalJour = dayPayments.reduce((a,p)=>a+Number(p.montant),0)
 
+  const theoByMethod = (m: string) =>
+    dayPayments.filter(p=>p.methode===m).reduce((a,p)=>a+Number(p.montant),0)
+  const countedTotal = METHODS.reduce((a,m)=>a+Number(counted[m]||0), 0)
+  const ecartTotal = countedTotal - totalJour
+
   async function cloturer() {
     setClosing(true)
+    const detail = METHODS.map(m =>
+      `${M_LABEL[m]} : théorique ${FDJ(theoByMethod(m))} / compté ${FDJ(Number(counted[m]||0))}`
+    ).join('\n')
     await supabase.from('cash_closings').upsert({
       date_cloture: today,
       cash_theorique: theorique,
-      cash_reel: Number(cashReel||0),
-      commentaire: closeNote || null,
+      cash_reel: Number(counted['cash']||0),
+      commentaire: [closeNote, detail].filter(Boolean).join('\n──\n') || null,
     }, { onConflict:'date_cloture' })
-    setClosing(false); setCloseOpen(false); setCashReel(''); setCloseNote('')
+    setClosing(false); setCloseOpen(false); setCounted({}); setCloseNote('')
     loadCloture()
   }
 
@@ -266,21 +297,32 @@ export default function CaissePage() {
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:7, marginBottom:14 }}>
                 {lines.map(l=>(
-                  <div key={l.service.id} style={{ display:'flex', alignItems:'center', gap:8,
-                    padding:'8px 10px', background:'#FBF7F1', borderRadius:11 }}>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, fontWeight:500, color:T.black }}>{l.service.nom_fr}</div>
-                      <div style={{ fontSize:10.5, color:T.gold }}>
-                        {l.service.prix_sur_devis?'Sur devis':FDJ(l.service.prix*l.qty)}
+                  <div key={l.service.id} style={{ padding:'9px 10px', background:'#FBF7F1', borderRadius:11 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12, fontWeight:500, color:T.black }}>{l.service.nom_fr}</div>
+                        <div style={{ fontSize:10.5, color: l.service.prix_sur_devis && !l.customPrice ? '#D14343' : T.gold }}>
+                          {l.service.prix_sur_devis
+                            ? (l.customPrice ? FDJ(l.customPrice*l.qty) : 'Prix à saisir')
+                            : FDJ(l.service.prix*l.qty)}
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                        <button className="b-icon" style={{width:24,height:24,fontSize:14,borderRadius:7}}
+                          onClick={()=>setQty(l.service.id,l.qty-1)}>−</button>
+                        <span style={{ fontSize:12, fontWeight:600, minWidth:14, textAlign:'center' }}>{l.qty}</span>
+                        <button className="b-icon" style={{width:24,height:24,fontSize:14,borderRadius:7}}
+                          onClick={()=>setQty(l.service.id,l.qty+1)}>+</button>
                       </div>
                     </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                      <button className="b-icon" style={{width:24,height:24,fontSize:14,borderRadius:7}}
-                        onClick={()=>setQty(l.service.id,l.qty-1)}>−</button>
-                      <span style={{ fontSize:12, fontWeight:600, minWidth:14, textAlign:'center' }}>{l.qty}</span>
-                      <button className="b-icon" style={{width:24,height:24,fontSize:14,borderRadius:7}}
-                        onClick={()=>setQty(l.service.id,l.qty+1)}>+</button>
-                    </div>
+                    {l.service.prix_sur_devis && (
+                      <input className="f" type="number" placeholder="Prix négocié (FDJ)"
+                        value={l.customPrice ?? ''} autoFocus={!l.customPrice}
+                        onChange={e=>setLines(ls=>ls.map(x=>x.service.id===l.service.id
+                          ? {...x, customPrice: e.target.value ? Number(e.target.value) : undefined} : x))}
+                        style={{ marginTop:7, padding:'7px 10px', fontSize:12,
+                          borderColor: l.customPrice ? '#E5DACE' : '#F0B0B0' }} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -305,24 +347,86 @@ export default function CaissePage() {
                     <span style={{ fontSize:12, fontWeight:600, color:T.black }}>Total</span>
                     <span style={{ fontFamily:'Cormorant Garamond,serif', fontSize:27, color:T.gold }}>{FDJ(total)}</span>
                   </div>
-                  {hasDevis && (
-                    <div style={{ fontSize:10.5, color:'#B8860B', marginTop:6 }}>
-                      Contient une prestation sur devis — ajustez le prix manuellement.
+                  {devisManquant && (
+                    <div style={{ fontSize:10.5, color:'#D14343', marginTop:6 }}>
+                      Saisissez le prix des prestations sur devis.
                     </div>
                   )}
                 </div>
 
                 <label className="lbl">Cliente</label>
-                <input className="f" placeholder="Téléphone" value={phone}
-                  onChange={e=>lookupPhone(e.target.value)} />
+
                 {foundClient ? (
-                  <div style={{ fontSize:11, color:'#2E7D32', marginTop:-6, marginBottom:10 }}>
-                    ✓ {foundClient.prenom} {foundClient.nom} · {foundClient.total_prestations} visite(s)
+                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 13px',
+                    background:'#F1F8F2', border:'1.5px solid #A5D6A7', borderRadius:13, marginBottom:12 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#2E7D32' }}>
+                        {foundClient.prenom} {foundClient.nom}
+                      </div>
+                      <div style={{ fontSize:11, color:'#5A8C5E' }}>
+                        {foundClient.telephone} · {foundClient.total_prestations} visite(s)
+                      </div>
+                    </div>
+                    <button className="b-icon" onClick={resetClient}>×</button>
                   </div>
-                ) : phone.length>=6 && (
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:-4 }}>
-                    <input className="f" placeholder="Prénom" value={prenom} onChange={e=>setPrenom(e.target.value)} />
-                    <input className="f" placeholder="Nom" value={nom} onChange={e=>setNom(e.target.value)} />
+                ) : createMode ? (
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                      <input className="f" placeholder="Prénom *" value={prenom}
+                        onChange={e=>setPrenom(e.target.value)} style={{ marginBottom:0 }} autoFocus />
+                      <input className="f" placeholder="Nom *" value={nom}
+                        onChange={e=>setNom(e.target.value)} style={{ marginBottom:0 }} />
+                    </div>
+                    <PhoneInput value={phone} onChange={setPhone} />
+                    <button className="b-ghost" style={{ marginTop:8, width:'100%', fontSize:11 }}
+                      onClick={()=>{ setCreateMode(false); setPhone(''); setNom(''); setPrenom('') }}>
+                      ← Rechercher une cliente existante
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ position:'relative', marginBottom:12 }}>
+                    <input className="f" placeholder="Nom, prénom ou téléphone..." value={clientQuery}
+                      onChange={e=>{ setClientQuery(e.target.value); searchClient(e.target.value) }}
+                      style={{ marginBottom:0 }} />
+
+                    {clientQuery.length>=2 && (
+                      <div style={{ position:'absolute', top:'calc(100% + 5px)', left:0, right:0, zIndex:40,
+                        background:'#fff', border:'1.5px solid #E5DACE', borderRadius:13, overflow:'hidden',
+                        maxHeight:230, overflowY:'auto', boxShadow:'0 10px 30px rgba(26,26,26,.13)' }}>
+                        {searching ? (
+                          <div style={{ padding:'13px', fontSize:12, color:T.muted }}>Recherche...</div>
+                        ) : results.length>0 ? (
+                          results.map(c=>(
+                            <button key={c.id} onClick={()=>pickClient(c)} style={{
+                              display:'block', width:'100%', padding:'10px 13px', border:'none',
+                              background:'transparent', cursor:'pointer', textAlign:'left',
+                              borderBottom:'1px solid #F4EEE6', fontFamily:'inherit' }}>
+                              <div style={{ fontSize:12.5, fontWeight:500, color:T.black }}>
+                                {c.prenom} {c.nom}
+                              </div>
+                              <div style={{ fontSize:10.5, color:T.muted }}>
+                                {c.telephone} · {c.total_prestations} visite(s)
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div style={{ padding:'13px', fontSize:12, color:T.muted }}>
+                            Aucune cliente trouvée.
+                          </div>
+                        )}
+                        <button onClick={()=>{
+                            setCreateMode(true); setResults([])
+                            const q = clientQuery.trim()
+                            if (/^[\d\s+]+$/.test(q)) setPhone(q.replace(/\s/g,''))
+                            else { const parts = q.split(' '); setPrenom(parts[0]||''); setNom(parts.slice(1).join(' ')) }
+                          }}
+                          style={{ display:'block', width:'100%', padding:'11px 13px', border:'none',
+                            background:'#FBF5EC', cursor:'pointer', textAlign:'left',
+                            fontFamily:'inherit', fontSize:12.5, fontWeight:600, color:T.gold }}>
+                          + Créer une nouvelle cliente
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -342,7 +446,7 @@ export default function CaissePage() {
 
                 <button className="b-gold" style={{ width:'100%', padding:'14px' }}
                   onClick={encaisser}
-                  disabled={paying||!phone||!prenom||!nom}>
+                  disabled={paying||!phone||!prenom||!nom||devisManquant}>
                   {paying?'Encaissement...':`Encaisser ${FDJ(total)}`}
                 </button>
               </>
@@ -386,12 +490,23 @@ export default function CaissePage() {
                   <div style={{ fontSize:13, fontWeight:600, color:T.black, whiteSpace:'nowrap' }}>
                     {FDJ(a.prix_final)}
                   </div>
-                  {a.payment_status==='valide' ? (
-                    <span className="badge" style={{ background:'#E8F5E9', color:'#2E7D32' }}>Payé</span>
-                  ) : (
-                    <button className="b-gold" style={{ padding:'8px 16px', fontSize:11 }}
-                      onClick={()=>markPaid(a)}>Encaisser</button>
-                  )}
+                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                    {a.client?.telephone && (
+                      <a className="b-icon" title="Envoyer un rappel WhatsApp"
+                        href={waLink(a.client.telephone,
+                          `Bonjour ${a.client.prenom} ✨\n\nPetit rappel de votre rendez-vous chez ADORÉA :\n\n📅 ${new Date(a.date_rdv+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}\n🕐 ${a.heure_debut?.slice(0,5)}\n✦ ${a.service?.nom_fr}\n\nÀ très vite !\nADORÉA · PMU & Makeup Pro`)}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ textDecoration:'none', color:'#25D366', borderColor:'#B8E6C8' }}>
+                        ✆
+                      </a>
+                    )}
+                    {a.payment_status==='valide' ? (
+                      <span className="badge" style={{ background:'#E8F5E9', color:'#2E7D32' }}>Payé</span>
+                    ) : (
+                      <button className="b-gold" style={{ padding:'8px 16px', fontSize:11 }}
+                        onClick={()=>markPaid(a)}>Encaisser</button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -446,7 +561,7 @@ export default function CaissePage() {
             </div>
           ) : (
             <button className="b-primary" style={{ width:'100%', padding:'15px' }}
-              onClick={()=>{ setCashReel(String(theorique)); setCloseOpen(true) }}>
+              onClick={()=>{ const c:Record<string,string>={}; METHODS.forEach(m=>{c[m]=String(theoByMethod(m))}); setCounted(c); setCloseOpen(true) }}>
               Fermer la caisse
             </button>
           )}
@@ -462,26 +577,53 @@ export default function CaissePage() {
               <button className="b-icon" onClick={()=>setCloseOpen(false)}>×</button>
             </div>
 
-            <div style={{ background:'#FBF7F1', borderRadius:14, padding:'14px 16px', marginBottom:16 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, marginBottom:6 }}>
-                <span style={{ color:T.muted }}>Espèces théoriques</span>
-                <span style={{ fontWeight:600 }}>{FDJ(theorique)}</span>
-              </div>
-              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5 }}>
-                <span style={{ color:T.muted }}>Total journée</span>
-                <span style={{ fontWeight:600 }}>{FDJ(totalJour)}</span>
-              </div>
+            <div style={{ fontSize:11, fontWeight:600, letterSpacing:'.12em', textTransform:'uppercase',
+              color:T.muted, marginBottom:10 }}>Montants comptés</div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:14 }}>
+              {METHODS.map(m=>{
+                const theo = theoByMethod(m)
+                const cnt = Number(counted[m]||0)
+                const ec = cnt - theo
+                return (
+                  <div key={m} style={{ background:'#FBF7F1', borderRadius:13, padding:'11px 13px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:12.5, fontWeight:600, color:T.black }}>{M_LABEL[m]}</div>
+                        <div style={{ fontSize:10.5, color:T.muted }}>Théorique {FDJ(theo)}</div>
+                      </div>
+                      <input className="f" type="number" value={counted[m] ?? ''}
+                        onChange={e=>setCounted(c=>({...c,[m]:e.target.value}))}
+                        placeholder="0"
+                        style={{ width:120, marginBottom:0, padding:'8px 11px', fontSize:12.5, textAlign:'right' }} />
+                    </div>
+                    {counted[m] !== undefined && counted[m] !== '' && ec !== 0 && (
+                      <div style={{ fontSize:10.5, marginTop:6, color:'#D14343' }}>
+                        Écart : {ec>0?'+':''}{FDJ(ec)}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
-            <label className="lbl">Espèces comptées en caisse *</label>
-            <input className="f" type="number" value={cashReel} onChange={e=>setCashReel(e.target.value)} autoFocus />
-
-            {cashReel !== '' && (
-              <div style={{ marginTop:-6, marginBottom:12, fontSize:12,
-                color: Number(cashReel)-theorique===0 ? '#2E7D32' : '#D14343' }}>
-                Écart : {Number(cashReel)-theorique>0?'+':''}{FDJ(Number(cashReel)-theorique)}
+            <div style={{ background: ecartTotal===0 ? '#E8F5E9' : '#FDECEC',
+              border:`1.5px solid ${ecartTotal===0 ? '#A5D6A7' : '#F5C6C6'}`,
+              borderRadius:13, padding:'12px 14px', marginBottom:14 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, marginBottom:5 }}>
+                <span style={{ color:T.muted }}>Total attendu</span>
+                <span style={{ fontWeight:600 }}>{FDJ(totalJour)}</span>
               </div>
-            )}
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, marginBottom:5 }}>
+                <span style={{ color:T.muted }}>Total compté</span>
+                <span style={{ fontWeight:600 }}>{FDJ(countedTotal)}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:13.5, fontWeight:700,
+                color: ecartTotal===0 ? '#2E7D32' : '#C62828', paddingTop:6, borderTop:'1px solid rgba(0,0,0,.06)' }}>
+                <span>Écart global</span>
+                <span>{ecartTotal>0?'+':''}{FDJ(ecartTotal)}</span>
+              </div>
+            </div>
 
             <label className="lbl">Commentaire</label>
             <textarea className="f" style={{ minHeight:64, resize:'vertical' }} value={closeNote}
@@ -489,7 +631,7 @@ export default function CaissePage() {
 
             <div style={{ display:'flex', gap:9, marginTop:20 }}>
               <button className="b-ghost" onClick={()=>setCloseOpen(false)}>Annuler</button>
-              <button className="b-primary" style={{ flex:1 }} onClick={cloturer} disabled={closing||cashReel===''}>
+              <button className="b-primary" style={{ flex:1 }} onClick={cloturer} disabled={closing}>
                 {closing?'Fermeture...':'Confirmer la fermeture'}
               </button>
             </div>

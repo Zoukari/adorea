@@ -47,14 +47,22 @@ const SECTIONS = [
 ]
 
 const WA_TOGGLES = [
-  { key:'wa_enabled',          label:'WhatsApp activé' },
-  { key:'wa_paiements',        label:'WA paiements' },
-  { key:'wa_validation_sante', label:'WA validation santé' },
-  { key:'wa_rappels',          label:'WA rappels RDV' },
-  { key:'wa_bouton_flottant',  label:'Bouton flottant WA' },
-  { key:'wa_reservation',      label:'WA réservation' },
-  { key:'wa_retouches',        label:'WA retouches' },
-  { key:'wa_fidelite',         label:'WA fidélité' },
+  { key:'wa_enabled',          label:'WhatsApp activé',
+    desc:'Interrupteur principal. Désactivé, aucun message WhatsApp n\'est proposé nulle part.' },
+  { key:'wa_bouton_flottant',  label:'Bouton flottant sur le site',
+    desc:'Affiche la bulle verte WhatsApp en bas de la page publique.' },
+  { key:'wa_reservation',      label:'Réservation',
+    desc:'À la fin du formulaire de réservation, ouvre WhatsApp avec le récapitulatif du rendez-vous pré-rempli.' },
+  { key:'wa_paiements',        label:'Paiements',
+    desc:'Demande à la cliente d\'envoyer sa capture de paiement (CAC PAY, WAAFI, D-Money) par WhatsApp.' },
+  { key:'wa_validation_sante', label:'Validation santé',
+    desc:'Quand une cliente coche une contre-indication, son rendez-vous vous est envoyé pour validation avant confirmation.' },
+  { key:'wa_rappels',          label:'Rappels de rendez-vous',
+    desc:'Affiche un bouton WhatsApp sur chaque rendez-vous pour envoyer un rappel à la cliente en un clic.' },
+  { key:'wa_retouches',        label:'Retouches PMU',
+    desc:'Bouton WhatsApp dans Fidélité pour prévenir les clientes dont la retouche approche.' },
+  { key:'wa_fidelite',         label:'Récompenses fidélité',
+    desc:'Permet d\'envoyer une récompense fidélité à la cliente par WhatsApp.' },
 ]
 
 export default function SettingsPage() {
@@ -98,23 +106,30 @@ export default function SettingsPage() {
       {/* Toggles WhatsApp */}
       <div style={{ background:'white', border:`1px solid ${T.beige}`, borderRadius:8, padding:24, marginBottom:24 }}>
         <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.15em', color:T.muted, textTransform:'uppercase', marginBottom:16 }}>WhatsApp — Activations</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          {WA_TOGGLES.map(t => (
-            <div key={t.key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontSize:13, color:T.black }}>{t.label}</span>
-              <div style={{
-                width:44, height:24, borderRadius:12, cursor:'pointer', position:'relative',
-                background: settings[t.key] === 'true' ? T.gold : T.beige, transition:'background 0.2s',
-              }} onClick={() => set(t.key, settings[t.key] === 'true' ? 'false' : 'true')}>
-                <div style={{
-                  width:18, height:18, borderRadius:9, background:'white', position:'absolute',
-                  top:3, transition:'left 0.2s',
-                  left: settings[t.key] === 'true' ? 23 : 3,
-                  boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
-                }}/>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          {WA_TOGGLES.map((t, i) => {
+            const on = settings[t.key] === 'true'
+            const master = t.key === 'wa_enabled'
+            const disabled = !master && settings['wa_enabled'] !== 'true'
+            return (
+              <div key={t.key} style={{
+                display:'flex', alignItems:'flex-start', gap:14, padding:'13px 0',
+                borderTop: i===0 ? 'none' : '1px solid #F2EDE8',
+                opacity: disabled ? 0.45 : 1,
+              }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight: master ? 600 : 500, color:T.black }}>
+                    {t.label}
+                    {master && <span className="badge" style={{ background:'#FBF5EC', color:T.gold, marginLeft:8 }}>Principal</span>}
+                  </div>
+                  <div style={{ fontSize:11.5, color:T.muted, marginTop:3, lineHeight:1.55 }}>{t.desc}</div>
+                </div>
+                <button className={`sw${on?' on':''}`} style={{ marginTop:2 }}
+                  disabled={disabled}
+                  onClick={() => set(t.key, on ? 'false' : 'true')} />
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 

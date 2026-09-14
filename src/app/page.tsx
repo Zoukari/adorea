@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createClient } from '@/lib/supabase'
+import PhoneInput from '@/components/PhoneInput'
 import Image from 'next/image'
 
 const C = {
@@ -103,7 +105,7 @@ const T = {
   },
 }
 
-const SERVICES = [
+const FALLBACK_SERVICES = [
   {
     id:'sourcils', cat:'PMU — Sourcils',
     label:{ FR:'Sourcils PMU', EN:'Brows PMU', AR:'حواجب PMU' },
@@ -153,6 +155,86 @@ const BA = [
   { label:'Sourcils PMU', before:'/images/ba-before-1.webp', after:'/images/ba-after-1.webp' },
   { label:'Lèvres PMU',   before:'/images/ba-after-2.webp', after:'/images/ba-before-2.webp' },
 ]
+
+
+// ── Charge les prestations depuis Supabase ────────────────────
+type LiveItem = { id:string; name:string; devis:boolean; prix:number; duree:number }
+type LiveSection = {
+  id:string; cat:string
+  label:{FR:string;EN:string;AR:string}
+  desc:{FR:string;EN:string;AR:string}
+  items: LiveItem[]
+  img:string; kw:string; bg:string
+}
+
+const IMG_POOL = [
+  { img:'/images/pmu-brows.webp',      kw:'PRÉCISION · RÉSULTATS NATURELS',  bg:C.noir },
+  { img:'/images/levres-closeup.webp', kw:'COLORATION SUBTILE · LONGUE TENUE', bg:C.brun },
+  { img:'/images/makeup-profile.webp', kw:'DES REGARDS QUI MARQUENT',        bg:'#120E0A' },
+  { img:'/images/nails-hero.webp',     kw:'ÉLÉGANCE AU BOUT DES ONGLES',     bg:C.brun },
+]
+// Association image par mot-clé de catégorie
+function pickVisual(slug: string, nom: string, idx: number) {
+  const t = (slug + ' ' + nom).toLowerCase()
+  if (t.includes('sourcil') || t.includes('brow')) return IMG_POOL[0]
+  if (t.includes('lèvre') || t.includes('levre') || t.includes('lip')) return IMG_POOL[1]
+  if (t.includes('makeup') || t.includes('maquill')) return IMG_POOL[2]
+  if (t.includes('nail') || t.includes('ongle')) return IMG_POOL[3]
+  return IMG_POOL[idx % IMG_POOL.length]
+}
+
+function useLiveServices() {
+  const [sections, setSections] = useState<LiveSection[] | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    let alive = true
+    ;(async () => {
+      const [c, s] = await Promise.all([
+        supabase.from('categories').select('*').eq('actif', true).order('ordre'),
+        supabase.from('services').select('*').eq('actif', true).order('ordre'),
+      ])
+      if (!alive) return
+      const cats = (c.data as Array<Record<string, unknown>>) || []
+      const svcs = (s.data as Array<Record<string, unknown>>) || []
+      if (!cats.length || !svcs.length) { setSections(null); return }
+
+      const built: LiveSection[] = cats.map((cat, i) => {
+        const slug = String(cat.slug || '')
+        const nom  = String(cat.nom_fr || '')
+        const v = pickVisual(slug, nom, i)
+        const items: LiveItem[] = svcs
+          .filter(sv => sv.category_id === cat.id)
+          .map(sv => ({
+            id: String(sv.id),
+            name: String(sv.nom_fr),
+            devis: Boolean(sv.prix_sur_devis),
+            prix: Number(sv.prix || 0),
+            duree: Number(sv.duree_minutes || 60),
+          }))
+        return {
+          id: slug || `cat-${i}`,
+          cat: nom,
+          label: { FR: nom, EN: String(cat.nom_en || nom), AR: String(cat.nom_ar || nom) },
+          desc:  {
+            FR: String(cat.desc_fr || ''),
+            EN: String(cat.desc_en || cat.desc_fr || ''),
+            AR: String(cat.desc_ar || cat.desc_fr || ''),
+          },
+          items,
+          img: v.img, kw: v.kw, bg: v.bg,
+        }
+      }).filter(sec => sec.items.length > 0)
+
+      setSections(built.length ? built : null)
+    })()
+    return () => { alive = false }
+  }, [])
+
+  return sections
+}
+
+const FDJ_LAND = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FDJ'
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Montserrat:wght@200;300;400;500;600&display=swap');
@@ -348,6 +430,7 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .svc-list{display:flex;flex-direction:column;gap:9px;margin-bottom:36px}
 .svc-list-item{display:flex;align-items:center;gap:11px;font-size:12px;font-weight:300;color:rgba(250,246,240,0.55)}
 .svc-list-item::before{content:'';width:14px;height:1px;background:#C9A96A;flex-shrink:0}
+.svc-price{font-size:11.5px;font-weight:500;color:#C9A96A;white-space:nowrap;letter-spacing:0.03em}
 .svc-devis{font-size:9px;color:#C9A96A;margin-left:5px;opacity:0.65}
 .svc-sep{height:1px;background:linear-gradient(90deg,rgba(201,169,106,0.15),transparent)}
 
@@ -792,11 +875,11 @@ function useReveal() {
 }
 
 // ── Booking Modal ─────────────────────────────────────────────
-function BookingModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
+function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => void; sections: LiveSection[] }) {
   const t = T[lang]
   const [step, setStep]       = useState(0)
   const [selCat, setCat]      = useState<string|null>(null)
-  const [selSvc, setSvc]      = useState<{name:string;devis:boolean}|null>(null)
+  const [selSvc, setSvc]      = useState<LiveItem|null>(null)
   const [selDate, setDate]    = useState<string|null>(null)
   const [selSlot, setSlot]    = useState<string|null>(null)
   const [form, setForm]       = useState({prenom:'',nom:'',tel:'',dob:'',notes:''})
@@ -819,14 +902,14 @@ function BookingModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
   const DAYS = ['L','M','M','J','V','S','D']
   const SLOTS = ['09:00','09:30','10:00','10:30','11:00','11:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00']
 
-  const cats = [...new Set(SERVICES.map(s => s.cat))]
-  const filteredSvcs = selCat ? SERVICES.filter(s => s.cat===selCat) : SERVICES
+  const cats = [...new Set(sections.map(s => s.cat))]
+  const filteredSvcs = selCat ? sections.filter(s => s.cat===selCat) : sections
 
   const WA = '25377596159'
 
   function buildMsg() {
     let msg = `Bonjour ADORÉA ✨\n\n`
-    msg += `━━ PRESTATION ━━\n${selSvc?.name}${selSvc?.devis ? '\n⚠️ Prestation sur devis — j\'attends votre estimation.' : ''}\n\n`
+    msg += `━━ PRESTATION ━━\n${selSvc?.name}${selSvc?.devis ? '\n⚠️ Prestation sur devis — j\'attends votre estimation.' : `\nTarif : ${FDJ_LAND(selSvc?.prix || 0)}`}\n\n`
     msg += `━━ DATE SOUHAITÉE ━━\n${selDate} à ${selSlot}\n\n`
     msg += `━━ MES COORDONNÉES ━━\nPrénom : ${form.prenom}\nNom : ${form.nom}\nTéléphone : ${form.tel}\n${form.dob?`Date de naissance : ${form.dob}\n`:''}`
     if (form.notes) msg += `\n━━ INFORMATIONS COMPLÉMENTAIRES ━━\n${form.notes}\n`
@@ -897,7 +980,9 @@ function BookingModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
                   <div className="rdot"/>
                   <div>
                     <span className="pick-name">{item.name}</span>
-                    {item.devis && <span className="pick-devis-badge">· Sur devis</span>}
+                    <span className="pick-devis-badge">
+                      {item.devis ? (lang==='AR'?'· حسب التقدير':lang==='EN'?'· On quote':'· Sur devis') : ' · ' + FDJ_LAND(item.prix)}
+                    </span>
                     <div className="pick-cat">{s.label[lang]}</div>
                   </div>
                 </button>
@@ -941,7 +1026,10 @@ function BookingModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
               <div><label className="f-lbl">{lang==='AR'?'اللقب':lang==='EN'?'Last name':'Nom *'}</label><input className={`f-in${errors.nom?' err':''}`} value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))}/></div>
             </div>
             <label className="f-lbl">{lang==='AR'?'الهاتف':lang==='EN'?'Phone *':'Téléphone *'}</label>
-            <input className={`f-in${errors.tel?' err':''}`} type="tel" placeholder="+253..." value={form.tel} onChange={e=>setForm(f=>({...f,tel:e.target.value}))}/>
+            <div style={{marginBottom:13}}>
+              <PhoneInput landing value={form.tel} className={`f-in${errors.tel?' err':''}`}
+                onChange={v=>setForm(f=>({...f,tel:v}))} />
+            </div>
             <label className="f-lbl">{lang==='AR'?'تاريخ الميلاد':lang==='EN'?'Date of birth':'Date de naissance'}</label>
             <input className="f-in" type="date" value={form.dob} onChange={e=>setForm(f=>({...f,dob:e.target.value}))}/>
             <label className="f-lbl">{lang==='AR'?'ملاحظات':lang==='EN'?'Notes':'Notes / Informations complémentaires'}</label>
@@ -1008,6 +1096,8 @@ function BookingModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
             <div className="recap-box">
               {[
                 {l:lang==='FR'?'Soin':lang==='EN'?'Service':'الخدمة',v:selSvc?.name},
+                {l:lang==='FR'?'Tarif':lang==='EN'?'Price':'السعر',
+                 v: selSvc?.devis ? (lang==='FR'?'Sur devis':'On quote') : FDJ_LAND(selSvc?.prix||0)},
                 {l:'Date',v:selDate?`${selDate} · ${selSlot}`:'—'},
                 {l:lang==='FR'?'Cliente':lang==='EN'?'Client':'العميلة',v:`${form.prenom} ${form.nom}`},
               ].map(r=><div key={r.l} className="recap-row"><span style={{color:C.taupe}}>{r.l}</span><span style={{color:C.noir}}>{r.v}</span></div>)}
@@ -1060,6 +1150,8 @@ export default function Home() {
   }, [])
   const [booking, setBooking] = useState(false)
   const activeSection          = useActiveSection()
+  const liveSections           = useLiveServices()
+  const SECTIONS: LiveSection[] = liveSections ?? (FALLBACK_SERVICES as unknown as LiveSection[])
   const t = T[lang]
   const dir = lang==='AR' ? 'rtl' : 'ltr'
   useReveal()
@@ -1198,7 +1290,7 @@ export default function Home() {
           <RevealLines tag="h2" text={t.svc_sub} className="svc-header-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
         </div>
 
-        {SERVICES.map((s,idx)=>(
+        {SECTIONS.map((s,idx)=>(
           <div key={s.id} id={s.id}>
             <div className={`svc-row${idx%2===1?' rev':''}`} style={{background:s.bg}}>
               <div className={`svc-img-col clip-up ${idx%2===1?'clip-up-brun':'clip-up-dark'} glass-shimmer`}><img src={s.img} alt={s.label[lang]}/></div>
@@ -1215,8 +1307,10 @@ export default function Home() {
                 <div className="svc-list rv" style={{transitionDelay:'0.25s'}}>
                   {s.items.map((item,j)=>(
                     <div key={j} className="svc-list-item">
-                      {item.name}
-                      {item.devis && <span className="svc-devis">· Sur devis</span>}
+                      <span style={{flex:1}}>{item.name}</span>
+                      <span className="svc-price">
+                        {item.devis ? (lang==='AR'?'حسب التقدير':lang==='EN'?'On quote':'Sur devis') : FDJ_LAND(item.prix)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1225,7 +1319,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            {idx < SERVICES.length-1 && <div className="svc-sep"/>}
+            {idx < SECTIONS.length-1 && <div className="svc-sep"/>}
           </div>
         ))}
       </section>
@@ -1370,7 +1464,7 @@ export default function Home() {
         </a>
       </div>
 
-      {booking && <BookingModal lang={lang} onClose={()=>setBooking(false)}/>}
+      {booking && <BookingModal lang={lang} sections={SECTIONS} onClose={()=>setBooking(false)}/>}
     </div>
   )
 }

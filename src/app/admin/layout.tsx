@@ -203,12 +203,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .g3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
         .g4 { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
 
-        @media (max-width: 640px) {
-          .ph h1 { font-size: 25px; }
-          .row { padding: 11px 13px; gap: 8px; }
-          .mdl { padding: 22px 18px 28px; }
-          .pg { padding: 16px 14px 32px !important; }
+        @media (max-width: 900px) {
+          /* Les lignes en grille passent en bloc empilé */
+          .row { grid-template-columns: 1fr !important; gap: 9px !important; }
+          .row > * { min-width: 0; }
+          /* Toute grille inline à colonnes fixes devient fluide */
+          [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+          .g2, .g3, .g4 { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important; }
         }
+
+        @media (max-width: 640px) {
+          .ph { margin-bottom: 16px; }
+          .ph h1 { font-size: 24px; }
+          .ph > button, .ph > a { width: 100%; }
+          .row { padding: 12px 13px; }
+          .mdl { padding: 20px 16px 26px; }
+          .pg { padding: 14px 12px 32px !important; }
+          .tabs { margin-bottom: 14px; }
+          .tabs button { padding: 8px 13px; font-size: 11.5px; }
+          .chip { padding: 7px 13px; font-size: 11.5px; }
+          .f { font-size: 16px; } /* évite le zoom auto iOS */
+          .lbl { font-size: 9.5px; }
+          .b-primary, .b-gold { padding: 12px 20px; font-size: 12px; }
+          /* Les modales prennent toute la largeur en bas d'écran */
+          .mdl { max-height: 94svh; }
+          /* Les tableaux scrollent au lieu de déborder */
+          .tw { margin: 0 -12px; padding: 0 12px; }
+        }
+
+        /* Sécurité globale : rien ne déborde jamais */
+        .adm img, .adm svg, .adm canvas { max-width: 100%; }
+        .adm .recharts-wrapper { max-width: 100% !important; }
       `}</style>
 
       {/* SIDEBAR */}

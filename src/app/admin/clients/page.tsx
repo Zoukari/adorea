@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
+import PhoneInput from '@/components/PhoneInput'
 import type { Client, Appointment, PmuRecord, ClientHealthForm, ClientReward } from '@/types'
 
 const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', offwhite:'#F9F6F2', muted:'#8A7A74' }
@@ -24,6 +25,7 @@ export default function ClientsPage() {
   const [tab, setTab] = useState<Tab>('identite')
   const [creating, setCreating] = useState(false)
   const [newClient, setNewClient] = useState({ nom: '', prenom: '', telephone: '', email: '', date_naissance: '' })
+  const [editing, setEditing] = useState<null | { id:string; nom:string; prenom:string; telephone:string; email:string; date_naissance:string }>(null)
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
@@ -54,6 +56,16 @@ export default function ClientsPage() {
       rewards:       (rewardRes.data as ClientReward[]) || [],
     })
     setTab('identite')
+  }
+
+  async function saveEdit() {
+    if (!editing || !editing.nom || !editing.prenom || !editing.telephone) return
+    setSaving(true)
+    await supabase.from('clients').update({
+      nom: editing.nom, prenom: editing.prenom, telephone: editing.telephone,
+      email: editing.email || null, date_naissance: editing.date_naissance || null,
+    }).eq('id', editing.id)
+    setSaving(false); setEditing(null); setSelected(null); load()
   }
 
   async function saveNewClient() {
@@ -153,22 +165,82 @@ export default function ClientsPage() {
             {[
               { key:'prenom', label:'Prénom *', type:'text' },
               { key:'nom', label:'Nom *', type:'text' },
-              { key:'telephone', label:'Téléphone *', type:'tel' },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom:16 }}>
+                <label className="lbl">{f.label}</label>
+                <input className="f" type={f.type}
+                  value={(newClient as Record<string, string>)[f.key]}
+                  onChange={e => setNewClient(p => ({ ...p, [f.key]: e.target.value }))} />
+              </div>
+            ))}
+            <div style={{ marginBottom:16 }}>
+              <label className="lbl">Téléphone *</label>
+              <PhoneInput value={newClient.telephone}
+                onChange={v => setNewClient(p => ({ ...p, telephone: v }))} />
+            </div>
+            {[
               { key:'email', label:'Email', type:'email' },
               { key:'date_naissance', label:'Date de naissance', type:'date' },
             ].map(f => (
               <div key={f.key} style={{ marginBottom:16 }}>
-                <label style={{ fontSize:11, fontWeight:600, letterSpacing:'0.12em', color:T.muted, textTransform:'uppercase', display:'block', marginBottom:6 }}>{f.label}</label>
-                <input type={f.type}
+                <label className="lbl">{f.label}</label>
+                <input className="f" type={f.type}
                   value={(newClient as Record<string, string>)[f.key]}
-                  onChange={e => setNewClient(p => ({ ...p, [f.key]: e.target.value }))}
-                  style={{ width:'100%', padding:'11px 14px', border:`1px solid ${T.beige}`, borderRadius:4, fontFamily:'Manrope,sans-serif', fontSize:13, outline:'none', background:'white' }} />
+                  onChange={e => setNewClient(p => ({ ...p, [f.key]: e.target.value }))} />
               </div>
             ))}
             <button onClick={saveNewClient} disabled={saving} style={{
               width:'100%', padding:'13px', borderRadius:4, border:'none', cursor:'pointer',
               background:T.black, color:T.offwhite, fontSize:13, fontWeight:600, fontFamily:'Manrope,sans-serif', marginTop:8
             }}>{saving ? 'Enregistrement...' : 'Créer la cliente'}</button>
+          </div>
+        )}
+
+        {/* MODIFIER CLIENTE */}
+        {editing && (
+          <div className="ovl" onClick={e=>e.target===e.currentTarget&&setEditing(null)}>
+            <div className="mdl">
+              <div className="mdl-h">
+                <h3>Modifier la cliente</h3>
+                <button className="b-icon" onClick={()=>setEditing(null)}>×</button>
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+                <div>
+                  <label className="lbl">Prénom *</label>
+                  <input className="f" value={editing.prenom}
+                    onChange={e=>setEditing(x=>x&&({...x,prenom:e.target.value}))} style={{marginBottom:0}} />
+                </div>
+                <div>
+                  <label className="lbl">Nom *</label>
+                  <input className="f" value={editing.nom}
+                    onChange={e=>setEditing(x=>x&&({...x,nom:e.target.value}))} style={{marginBottom:0}} />
+                </div>
+              </div>
+
+              <label className="lbl">Téléphone *</label>
+              <div style={{ marginBottom:14 }}>
+                <PhoneInput value={editing.telephone}
+                  onChange={v=>setEditing(x=>x&&({...x,telephone:v}))} />
+              </div>
+
+              <label className="lbl">Email</label>
+              <input className="f" type="email" value={editing.email}
+                onChange={e=>setEditing(x=>x&&({...x,email:e.target.value}))} />
+
+              <div style={{ height:4 }}/>
+              <label className="lbl">Date de naissance</label>
+              <input className="f" type="date" value={editing.date_naissance}
+                onChange={e=>setEditing(x=>x&&({...x,date_naissance:e.target.value}))} />
+
+              <div style={{ display:'flex', gap:9, marginTop:20 }}>
+                <button className="b-ghost" onClick={()=>setEditing(null)}>Annuler</button>
+                <button className="b-primary" style={{flex:1}} onClick={saveEdit}
+                  disabled={saving||!editing.nom||!editing.prenom||!editing.telephone}>
+                  {saving?'Enregistrement...':'Enregistrer'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -188,7 +260,12 @@ export default function ClientsPage() {
                   padding:'9px 16px', borderRadius:4, border:'none', cursor:'pointer',
                   background:'#25D366', color:'white', fontSize:12, fontWeight:600, fontFamily:'Manrope,sans-serif',
                 }}>💬 WhatsApp</button>
-                <button onClick={() => setSelected(null)} style={{ background:'transparent', border:`1px solid ${T.beige}`, borderRadius:4, padding:'9px 14px', cursor:'pointer', fontSize:12, color:T.muted, fontFamily:'Manrope,sans-serif' }}>Fermer</button>
+                <button onClick={() => setEditing({
+                  id: selected.id, nom: selected.nom, prenom: selected.prenom,
+                  telephone: selected.telephone, email: selected.email || '',
+                  date_naissance: selected.date_naissance || '',
+                })} className="b-ghost">✎ Modifier</button>
+                <button onClick={() => setSelected(null)} className="b-ghost">Fermer</button>
               </div>
             </div>
 
