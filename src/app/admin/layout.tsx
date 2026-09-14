@@ -4,21 +4,20 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import AdminDiagnostic from '@/components/AdminDiagnostic'
+import { ADMIN_CSS } from '@/lib/admin-ui'
 
 const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', offwhite:'#F9F6F2', muted:'#8A7A74' }
 
 const NAV = [
   { href:'/admin',              icon:'▦',  label:'Dashboard' },
-  { href:'/admin/appointments', icon:'📅', label:'Rendez-vous' },
   { href:'/admin/caisse',       icon:'💳', label:'Caisse' },
+  { href:'/admin/appointments', icon:'📅', label:'Rendez-vous' },
   { href:'/admin/clients',      icon:'👤', label:'Clientes' },
   { href:'/admin/services',     icon:'✦',  label:'Prestations' },
-  { href:'/admin/employees',    icon:'👥', label:'Équipe' },
   { href:'/admin/planning',     icon:'🗓', label:'Planning' },
-  { href:'/admin/loyalty',      icon:'⭐', label:'Fidélité' },
-  { href:'/admin/promotions',   icon:'🏷', label:'Promos' },
+  { href:'/admin/employees',    icon:'👥', label:'Équipe' },
+  { href:'/admin/loyalty',      icon:'⭐', label:'Fidélité & Promos' },
   { href:'/admin/accounting',   icon:'📊', label:'Comptabilité' },
-  { href:'/admin/expenses',     icon:'🧾', label:'Dépenses' },
   { href:'/admin/gallery',      icon:'🖼', label:'Galerie' },
   { href:'/admin/settings',     icon:'⚙️', label:'Paramètres' },
 ]
@@ -68,9 +67,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="admin-shell" style={{ display:'flex', minHeight:'100vh', background:'#F2EDE8' }}>
+    <div className="admin-shell adm" style={{ display:'flex', minHeight:'100vh', background:'#F2EDE8' }}>
+      <style>{ADMIN_CSS}</style>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Manrope:wght@400;500;600&display=swap');
         .nav-link { display:flex; align-items:center; gap:10px; padding:10px 16px; border-radius:14px; text-decoration:none; font-size:13px; font-weight:400; transition:all 0.2s ease; margin:2px 8px; white-space:nowrap; }
         .nav-link:hover { background:rgba(201,169,106,0.1); color:#C9A96A; }
         .nav-link.active { background:rgba(201,169,106,0.15); color:#C9A96A; font-weight:500; }
@@ -115,6 +114,100 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           .admin-main { margin-left: 0 !important; }
           .admin-content { padding: 12px 12px 40px !important; }
           .admin-card { border-radius: 18px !important; min-height: auto !important; }
+        }
+
+        /* ══════════ SYSTÈME GLOBAL ADMIN ══════════ */
+        .adm * { box-sizing: border-box; }
+
+        /* --- Boutons avec retour visuel --- */
+        button, .btn { font-family: 'Manrope', sans-serif; }
+        button:not(:disabled), .btn:not(:disabled) { cursor: pointer; }
+        button:not(:disabled):active, .btn:not(:disabled):active { transform: scale(0.97); }
+        button, .btn { transition: transform .12s cubic-bezier(.2,0,.2,1), background .18s, box-shadow .18s, border-color .18s, color .18s; }
+
+        .b-primary { background:#1A1A1A; color:#F9F6F2; border:none; border-radius:100px; padding:11px 22px; font-size:12px; font-weight:600; letter-spacing:.06em; }
+        .b-primary:hover:not(:disabled) { background:#000; box-shadow:0 6px 18px rgba(26,26,26,.25); transform:translateY(-1px); }
+        .b-primary:disabled { opacity:.35; cursor:not-allowed; }
+
+        .b-gold { background:#C9A96A; color:#1A1A1A; border:none; border-radius:100px; padding:11px 22px; font-size:12px; font-weight:700; letter-spacing:.06em; }
+        .b-gold:hover:not(:disabled) { background:#D9BC82; box-shadow:0 6px 18px rgba(201,169,106,.35); transform:translateY(-1px); }
+        .b-gold:disabled { opacity:.35; cursor:not-allowed; }
+
+        .b-ghost { background:transparent; color:#8A7A74; border:1.5px solid #E5DACE; border-radius:100px; padding:10px 18px; font-size:12px; font-weight:500; }
+        .b-ghost:hover:not(:disabled) { border-color:#C9A96A; color:#1A1A1A; background:#FBF7F1; }
+
+        .b-danger { background:transparent; color:#D14343; border:1.5px solid #F0C9C9; border-radius:100px; padding:10px 18px; font-size:12px; font-weight:500; }
+        .b-danger:hover:not(:disabled) { background:#D14343; color:#fff; border-color:#D14343; }
+
+        .b-icon { background:transparent; border:1.5px solid #E5DACE; border-radius:12px; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; color:#8A7A74; font-size:14px; }
+        .b-icon:hover:not(:disabled) { border-color:#C9A96A; color:#1A1A1A; background:#FBF7F1; }
+
+        /* --- Chips / filtres --- */
+        .chip { background:#fff; border:1.5px solid #E5DACE; border-radius:100px; padding:8px 16px; font-size:12px; font-weight:500; color:#8A7A74; }
+        .chip:hover { border-color:#C9A96A; color:#1A1A1A; }
+        .chip.on { background:#1A1A1A; border-color:#1A1A1A; color:#F9F6F2; }
+        .chip.gold.on { background:#C9A96A; border-color:#C9A96A; color:#1A1A1A; }
+
+        /* --- Cartes cliquables --- */
+        .tile { background:#fff; border:1.5px solid #EFE6DC; border-radius:16px; text-align:left; transition:all .18s; }
+        .tile:hover { border-color:#C9A96A; box-shadow:0 4px 16px rgba(26,26,26,.07); transform:translateY(-2px); }
+        .tile.on { border-color:#C9A96A; background:#FBF5EC; box-shadow:0 0 0 2px rgba(201,169,106,.2); }
+
+        /* --- Champs --- */
+        .f { width:100%; padding:11px 14px; border:1.5px solid #E5DACE; border-radius:12px; font-family:'Manrope',sans-serif; font-size:13px; background:#fff; color:#1A1A1A; outline:none; transition:border-color .18s, box-shadow .18s; }
+        .f:focus { border-color:#C9A96A; box-shadow:0 0 0 3px rgba(201,169,106,.12); }
+        .lbl { display:block; font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#8A7A74; margin-bottom:6px; }
+
+        /* --- En-tête de page --- */
+        .ph { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+        .ph h1 { font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:300; color:#1A1A1A; margin:0; }
+        .ph .sub { font-size:11px; color:#8A7A74; margin-top:2px; }
+
+        /* --- Onglets --- */
+        .tabs { display:flex; gap:4px; background:#F2EDE8; padding:4px; border-radius:100px; margin-bottom:20px; overflow-x:auto; scrollbar-width:none; }
+        .tabs::-webkit-scrollbar { display:none; }
+        .tabs button { flex:1; min-width:max-content; background:transparent; border:none; border-radius:100px; padding:9px 18px; font-size:12px; font-weight:500; color:#8A7A74; white-space:nowrap; }
+        .tabs button.on { background:#fff; color:#1A1A1A; font-weight:600; box-shadow:0 2px 8px rgba(26,26,26,.08); }
+
+        /* --- Modales --- */
+        .ovl { position:fixed; inset:0; background:rgba(20,16,14,.6); backdrop-filter:blur(8px); z-index:500; display:flex; align-items:flex-end; justify-content:center; animation:ovlIn .2s ease; }
+        @media(min-width:640px){ .ovl { align-items:center; } }
+        @keyframes ovlIn { from{opacity:0} to{opacity:1} }
+        .mdl { background:#F9F6F2; border-radius:24px 24px 0 0; width:100%; max-width:520px; max-height:92svh; overflow-y:auto; padding:26px 24px 32px; animation:mdlIn .3s cubic-bezier(.16,1,.3,1); }
+        @media(min-width:640px){ .mdl { border-radius:24px; } }
+        @keyframes mdlIn { from{opacity:0; transform:translateY(24px)} to{opacity:1; transform:none} }
+        .mdl-h { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+        .mdl-h h3 { font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:300; margin:0; color:#1A1A1A; }
+
+        /* --- Tableaux responsive --- */
+        .tw { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+        .rows { display:flex; flex-direction:column; gap:6px; }
+        .row { display:grid; gap:12px; align-items:center; padding:13px 16px; background:#fff; border:1.5px solid #EFE6DC; border-radius:14px; transition:border-color .18s, box-shadow .18s; }
+        .row:hover { border-color:#DECFBE; box-shadow:0 2px 10px rgba(26,26,26,.05); }
+
+        /* --- Switch --- */
+        .sw { width:36px; height:20px; border-radius:10px; background:#E5DACE; position:relative; cursor:pointer; transition:background .22s; flex-shrink:0; border:none; padding:0; }
+        .sw.on { background:#C9A96A; }
+        .sw::after { content:''; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; transition:left .22s cubic-bezier(.2,0,.2,1); }
+        .sw.on::after { left:19px; }
+
+        /* --- États --- */
+        .empty { padding:48px 20px; text-align:center; color:#B5A79E; font-size:13px; }
+        .skel { background:linear-gradient(90deg,#F0EAE3 25%,#F7F2EC 50%,#F0EAE3 75%); background-size:200% 100%; animation:skel 1.4s infinite; border-radius:12px; }
+        @keyframes skel { from{background-position:200% 0} to{background-position:-200% 0} }
+
+        .badge { display:inline-flex; align-items:center; padding:4px 10px; border-radius:100px; font-size:10px; font-weight:600; letter-spacing:.04em; }
+
+        /* --- Grilles auto-responsive --- */
+        .g2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+        .g3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+        .g4 { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+
+        @media (max-width: 640px) {
+          .ph h1 { font-size: 25px; }
+          .row { padding: 11px 13px; gap: 8px; }
+          .mdl { padding: 22px 18px 28px; }
+          .pg { padding: 16px 14px 32px !important; }
         }
       `}</style>
 

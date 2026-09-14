@@ -1,143 +1,185 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { Service, Category, Promotion } from '@/types'
+import type { Service, Category } from '@/types'
 
-const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', offwhite:'#F9F6F2', muted:'#8A7A74' }
+const T = { gold:'#C9A96A', black:'#1A1A1A', muted:'#8A7A74' }
 const FDJ = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FDJ'
+const slugify = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+   .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+type SvcForm = {
+  id?: string
+  category_id: string
+  nom_fr: string
+  desc_fr: string
+  prix: string
+  prix_sur_devis: boolean
+  duree_minutes: string
+  is_pmu: boolean
+  actif: boolean
+}
+const EMPTY_SVC: SvcForm = {
+  category_id:'', nom_fr:'', desc_fr:'', prix:'', prix_sur_devis:false,
+  duree_minutes:'60', is_pmu:false, actif:true,
+}
+
+type CatForm = { id?: string; nom_fr: string; desc_fr: string; actif: boolean }
+const EMPTY_CAT: CatForm = { nom_fr:'', desc_fr:'', actif:true }
 
 export default function ServicesPage() {
   const supabase = createClient()
-  const [categories, setCategories] = useState<Category[]>([])
-  const [services, setServices] = useState<(Service & { category?: Category; promotion?: Promotion | null })[]>([])
-  const [promotions, setPromos] = useState<Promotion[]>([])
+  const [tab, setTab] = useState<'services'|'categories'>('services')
+  const [cats, setCats] = useState<Category[]>([])
+  const [svcs, setSvcs] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'services' | 'promos'>('services')
-  const [editing, setEditing] = useState<Service | null>(null)
-  const [addingPromo, setAddingPromo] = useState(false)
-  const [promoForm, setPromoForm] = useState({
-    service_id: '', nom: '', remise_pct: '', remise_fixe: '',
-    date_debut: new Date().toISOString().split('T')[0],
-    date_fin: '', actif: true,
-  })
+  const [filterCat, setFilterCat] = useState<string>('')
 
-  async function load() {
+  const [svcOpen, setSvcOpen] = useState(false)
+  const [svcForm, setSvcForm] = useState<SvcForm>(EMPTY_SVC)
+  const [catOpen, setCatOpen] = useState(false)
+  const [catForm, setCatForm] = useState<CatForm>(EMPTY_CAT)
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(async () => {
     setLoading(true)
-    const [catRes, srvRes, promoRes] = await Promise.all([
+    const [c, s] = await Promise.all([
       supabase.from('categories').select('*').order('ordre'),
-      supabase.from('services').select('*, category:categories(*), promotion:promotions(*)').order('ordre'),
-      supabase.from('promotions').select('*, service:services(nom_fr)').order('created_at', { ascending: false }),
+      supabase.from('services').select('*').order('ordre'),
     ])
-    setCategories((catRes.data as Category[]) || [])
-    setServices((srvRes.data as (Service & { category?: Category; promotion?: Promotion | null })[]) || [])
-    setPromos((promoRes.data as Promotion[]) || [])
+    setCats((c.data as Category[]) || [])
+    setSvcs((s.data as Service[]) || [])
     setLoading(false)
+  }, [supabase])
+
+  useEffect(() => { load() }, [load])
+
+  // ── Services ──
+  function newSvc() {
+    setSvcForm({ ...EMPTY_SVC, category_id: filterCat || cats[0]?.id || '' })
+    setSvcOpen(true)
   }
-
-  useEffect(() => { load() }, [])
-
-  async function updateService(id: string, updates: Partial<Service>) {
-    await supabase.from('services').update(updates).eq('id', id)
-    load(); setEditing(null)
-  }
-
-  async function savePromo() {
-    await supabase.from('promotions').insert({
-      service_id:    promoForm.service_id || null,
-      nom:           promoForm.nom,
-      remise_pct:    promoForm.remise_pct ? Number(promoForm.remise_pct) : null,
-      remise_fixe:   promoForm.remise_fixe ? Number(promoForm.remise_fixe) : null,
-      date_debut:    promoForm.date_debut,
-      date_fin:      promoForm.date_fin,
-      actif:         true,
+  function editSvc(s: Service) {
+    setSvcForm({
+      id: s.id, category_id: s.category_id, nom_fr: s.nom_fr,
+      desc_fr: s.desc_fr || '', prix: String(s.prix || ''),
+      prix_sur_devis: s.prix_sur_devis, duree_minutes: String(s.duree_minutes || 60),
+      is_pmu: s.is_pmu, actif: s.actif,
     })
-    setAddingPromo(false)
-    setPromoForm({ service_id:'', nom:'', remise_pct:'', remise_fixe:'', date_debut: new Date().toISOString().split('T')[0], date_fin:'', actif:true })
-    load()
+    setSvcOpen(true)
+  }
+  async function saveSvc() {
+    if (!svcForm.nom_fr || !svcForm.category_id) return
+    setSaving(true)
+    const payload = {
+      category_id: svcForm.category_id,
+      slug: slugify(svcForm.nom_fr),
+      nom_fr: svcForm.nom_fr,
+      desc_fr: svcForm.desc_fr || null,
+      prix: svcForm.prix_sur_devis ? 0 : Number(svcForm.prix || 0),
+      prix_sur_devis: svcForm.prix_sur_devis,
+      duree_minutes: Number(svcForm.duree_minutes || 60),
+      is_pmu: svcForm.is_pmu,
+      actif: svcForm.actif,
+    }
+    if (svcForm.id) await supabase.from('services').update(payload).eq('id', svcForm.id)
+    else await supabase.from('services').insert({ ...payload, ordre: svcs.length + 1 })
+    setSaving(false); setSvcOpen(false); load()
+  }
+  async function delSvc(id: string) {
+    if (!confirm('Supprimer cette prestation ?')) return
+    await supabase.from('services').delete().eq('id', id); load()
+  }
+  async function toggleSvc(id: string, actif: boolean) {
+    await supabase.from('services').update({ actif }).eq('id', id); load()
   }
 
-  async function togglePromo(id: string, actif: boolean) {
-    await supabase.from('promotions').update({ actif }).eq('id', id)
-    load()
+  // ── Catégories ──
+  function newCat() { setCatForm(EMPTY_CAT); setCatOpen(true) }
+  function editCat(c: Category) {
+    setCatForm({ id: c.id, nom_fr: c.nom_fr, desc_fr: c.desc_fr || '', actif: c.actif })
+    setCatOpen(true)
+  }
+  async function saveCat() {
+    if (!catForm.nom_fr) return
+    setSaving(true)
+    const payload = {
+      slug: slugify(catForm.nom_fr),
+      nom_fr: catForm.nom_fr,
+      desc_fr: catForm.desc_fr || null,
+      actif: catForm.actif,
+    }
+    if (catForm.id) await supabase.from('categories').update(payload).eq('id', catForm.id)
+    else await supabase.from('categories').insert({ ...payload, ordre: cats.length + 1 })
+    setSaving(false); setCatOpen(false); load()
+  }
+  async function delCat(id: string) {
+    const n = svcs.filter(s => s.category_id === id).length
+    if (n > 0) { alert(`Impossible : ${n} prestation(s) utilisent cette catégorie.`); return }
+    if (!confirm('Supprimer cette catégorie ?')) return
+    await supabase.from('categories').delete().eq('id', id); load()
   }
 
-  const grouped = categories.map(cat => ({
-    cat,
-    items: services.filter(s => s.category_id === cat.id),
-  }))
+  const shown = filterCat ? svcs.filter(s => s.category_id === filterCat) : svcs
+  const catName = (id: string) => cats.find(c => c.id === id)?.nom_fr || '—'
 
   return (
-    <div style={{ padding:32, maxWidth:900 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:28 }}>
-        <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:32, fontWeight:300 }}>
-          {tab === 'services' ? 'Prestations' : 'Promotions'}
-        </h1>
-        <div style={{ display:'flex', gap:8 }}>
-          <div style={{ display:'flex', gap:4, background:T.beige, borderRadius:6, padding:4 }}>
-            {(['services','promos'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                padding:'7px 14px', borderRadius:4, border:'none', cursor:'pointer', fontSize:12, fontWeight:500,
-                background: tab === t ? T.black : 'transparent', color: tab === t ? T.offwhite : T.muted, fontFamily:'Manrope,sans-serif',
-              }}>{t === 'services' ? 'Prestations' : 'Promos'}</button>
-            ))}
-          </div>
-          {tab === 'promos' && (
-            <button onClick={() => setAddingPromo(true)} style={{ padding:'9px 18px', borderRadius:4, border:'none', cursor:'pointer', background:T.black, color:T.offwhite, fontSize:12, fontWeight:600, fontFamily:'Manrope,sans-serif' }}>+ Promo</button>
-          )}
+    <div className="pg" style={{ padding:'26px 26px 60px' }}>
+      <div className="ph">
+        <div>
+          <h1>Prestations</h1>
+          <div className="sub">{svcs.length} prestation{svcs.length>1?'s':''} · {cats.length} catégorie{cats.length>1?'s':''}</div>
         </div>
+        <button className="b-gold" onClick={tab==='services' ? newSvc : newCat}>
+          + {tab==='services' ? 'Prestation' : 'Catégorie'}
+        </button>
       </div>
 
-      {loading ? <div style={{ color:T.muted, fontSize:13 }}>Chargement...</div> : (
-        <>
-          {/* SERVICES */}
-          {tab === 'services' && grouped.map(({ cat, items }) => (
-            <div key={cat.id} style={{ marginBottom:28 }}>
-              <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.15em', color:T.gold, textTransform:'uppercase', marginBottom:12 }}>{cat.nom_fr}</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                {items.map(sv => (
-                  <div key={sv.id} style={{
-                    display:'grid', gridTemplateColumns:'1fr 120px 80px 80px 80px',
-                    gap:12, padding:'13px 16px', background:'white', border:`1px solid ${T.beige}`, borderRadius:6, alignItems:'center',
-                  }}>
-                    <div>
-                      <div style={{ fontSize:13, fontWeight:500, color:T.black }}>{sv.nom_fr}</div>
-                      <div style={{ fontSize:11, color:T.muted }}>{sv.duree_minutes} min</div>
-                    </div>
-                    <div style={{ fontSize:13, fontWeight:600, color:T.gold }}>{sv.prix_sur_devis ? 'Sur devis' : FDJ(sv.prix)}</div>
-                    <div style={{ fontSize:11, color: sv.is_pmu ? T.nude : T.muted }}>{sv.is_pmu ? 'PMU' : ''}</div>
-                    <div style={{
-                      width:32, height:18, borderRadius:9, cursor:'pointer', position:'relative',
-                      background: sv.actif ? T.gold : T.beige, transition:'background 0.2s',
-                    }} onClick={() => updateService(sv.id, { actif: !sv.actif })}>
-                      <div style={{ width:12, height:12, borderRadius:6, background:'white', position:'absolute', top:3, left: sv.actif ? 17 : 3, transition:'left 0.2s' }}/>
-                    </div>
-                    <button onClick={() => setEditing(sv)} style={{ padding:'5px 10px', borderRadius:4, border:`1px solid ${T.beige}`, background:'white', cursor:'pointer', fontSize:11, color:T.muted, fontFamily:'Manrope,sans-serif' }}>Éditer</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+      <div className="tabs">
+        <button className={tab==='services'?'on':''} onClick={()=>setTab('services')}>Prestations</button>
+        <button className={tab==='categories'?'on':''} onClick={()=>setTab('categories')}>Catégories</button>
+      </div>
 
-          {/* PROMOS */}
-          {tab === 'promos' && (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {promotions.length === 0 && <div style={{ padding:32, textAlign:'center', color:T.muted, fontSize:13 }}>Aucune promotion</div>}
-              {promotions.map(p => (
-                <div key={p.id} style={{
-                  display:'flex', justifyContent:'space-between', alignItems:'center',
-                  padding:'14px 18px', background:'white', border:`1px solid ${p.actif ? T.nude : T.beige}`, borderRadius:6, opacity: p.actif ? 1 : 0.55,
-                }}>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:500, color:T.black }}>{p.nom}</div>
-                    <div style={{ fontSize:11, color:T.muted }}>
-                      {p.remise_pct ? `-${p.remise_pct}%` : ''}{p.remise_fixe ? `-${FDJ(p.remise_fixe)}` : ''} · {p.date_debut} → {p.date_fin}
+      {/* ══ PRESTATIONS ══ */}
+      {tab === 'services' && (
+        <>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
+            <button className={`chip${!filterCat?' on':''}`} onClick={()=>setFilterCat('')}>
+              Toutes ({svcs.length})
+            </button>
+            {cats.map(c => (
+              <button key={c.id} className={`chip${filterCat===c.id?' on':''}`} onClick={()=>setFilterCat(c.id)}>
+                {c.nom_fr} ({svcs.filter(s=>s.category_id===c.id).length})
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="rows">{Array.from({length:5}).map((_,i)=><div key={i} className="skel" style={{height:56}}/>)}</div>
+          ) : shown.length === 0 ? (
+            <div className="empty">Aucune prestation dans cette catégorie.</div>
+          ) : (
+            <div className="rows">
+              {shown.map(s => (
+                <div key={s.id} className="row"
+                  style={{ gridTemplateColumns:'1fr auto auto auto', opacity: s.actif?1:0.5 }}>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:500, color:T.black }}>
+                      {s.nom_fr}
+                      {s.is_pmu && <span className="badge" style={{ background:'#F3EAF8', color:'#7B4BA8', marginLeft:8 }}>PMU</span>}
+                    </div>
+                    <div style={{ fontSize:11, color:T.muted, marginTop:2 }}>
+                      {catName(s.category_id)} · {s.duree_minutes} min
                     </div>
                   </div>
-                  <div style={{
-                    width:36, height:20, borderRadius:10, cursor:'pointer', position:'relative',
-                    background: p.actif ? T.gold : T.beige,
-                  }} onClick={() => togglePromo(p.id, !p.actif)}>
-                    <div style={{ width:14, height:14, borderRadius:7, background:'white', position:'absolute', top:3, left: p.actif ? 19 : 3, transition:'left 0.2s' }}/>
+                  <div style={{ fontSize:13, fontWeight:600, color:T.gold, whiteSpace:'nowrap' }}>
+                    {s.prix_sur_devis ? 'Sur devis' : FDJ(s.prix)}
+                  </div>
+                  <button className={`sw${s.actif?' on':''}`} onClick={()=>toggleSvc(s.id, !s.actif)} />
+                  <div style={{ display:'flex', gap:5 }}>
+                    <button className="b-icon" onClick={()=>editSvc(s)}>✎</button>
+                    <button className="b-icon" style={{ color:'#D14343' }} onClick={()=>delSvc(s.id)}>×</button>
                   </div>
                 </div>
               ))}
@@ -146,77 +188,133 @@ export default function ServicesPage() {
         </>
       )}
 
-      {/* Edit service modal */}
-      {editing && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(26,26,26,0.65)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center' }}
-          onClick={() => setEditing(null)}>
-          <div style={{ background:T.offwhite, borderRadius:8, padding:32, width:420 }} onClick={e => e.stopPropagation()}>
-            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:20 }}>
-              <h3 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:22, fontWeight:300 }}>{editing.nom_fr}</h3>
-              <button onClick={() => setEditing(null)} style={{ background:'transparent', border:'none', cursor:'pointer', fontSize:20, color:T.muted }}>×</button>
-            </div>
-            {[
-              { key:'prix', label:'Prix (FDJ)', type:'number' },
-              { key:'duree_minutes', label:'Durée (min)', type:'number' },
-              { key:'buffer_minutes', label:'Buffer (min)', type:'number' },
-            ].map(f => (
-              <div key={f.key} style={{ marginBottom:14 }}>
-                <label style={{ fontSize:10, fontWeight:600, letterSpacing:'0.12em', color:T.muted, textTransform:'uppercase', display:'block', marginBottom:6 }}>{f.label}</label>
-                <input type={f.type}
-                  defaultValue={(editing as unknown as Record<string, number>)[f.key]}
-                  id={`edit-${f.key}`}
-                  style={{ width:'100%', padding:'10px 14px', border:`1px solid ${T.beige}`, borderRadius:4, fontFamily:'Manrope,sans-serif', fontSize:13, outline:'none', background:'white' }} />
+      {/* ══ CATÉGORIES ══ */}
+      {tab === 'categories' && (
+        loading ? (
+          <div className="rows">{Array.from({length:4}).map((_,i)=><div key={i} className="skel" style={{height:56}}/>)}</div>
+        ) : (
+          <div className="rows">
+            {cats.map(c => (
+              <div key={c.id} className="row"
+                style={{ gridTemplateColumns:'1fr auto auto', opacity: c.actif?1:0.5 }}>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:500, color:T.black }}>{c.nom_fr}</div>
+                  <div style={{ fontSize:11, color:T.muted, marginTop:2 }}>
+                    {svcs.filter(s=>s.category_id===c.id).length} prestation(s)
+                    {c.desc_fr && ` · ${c.desc_fr}`}
+                  </div>
+                </div>
+                <button className={`sw${c.actif?' on':''}`}
+                  onClick={async()=>{ await supabase.from('categories').update({actif:!c.actif}).eq('id',c.id); load() }} />
+                <div style={{ display:'flex', gap:5 }}>
+                  <button className="b-icon" onClick={()=>editCat(c)}>✎</button>
+                  <button className="b-icon" style={{ color:'#D14343' }} onClick={()=>delCat(c.id)}>×</button>
+                </div>
               </div>
             ))}
-            <button onClick={() => {
-              const updates: Partial<Service> = {}
-              const prix = (document.getElementById('edit-prix') as HTMLInputElement)?.value
-              const duree = (document.getElementById('edit-duree_minutes') as HTMLInputElement)?.value
-              const buffer = (document.getElementById('edit-buffer_minutes') as HTMLInputElement)?.value
-              if (prix) updates.prix = Number(prix)
-              if (duree) updates.duree_minutes = Number(duree)
-              if (buffer) updates.buffer_minutes = Number(buffer)
-              updateService(editing.id, updates)
-            }} style={{ width:'100%', padding:'12px', borderRadius:4, border:'none', cursor:'pointer', background:T.black, color:T.offwhite, fontSize:13, fontWeight:600, fontFamily:'Manrope,sans-serif' }}>
-              Sauvegarder
-            </button>
+            {cats.length === 0 && <div className="empty">Aucune catégorie.</div>}
+          </div>
+        )
+      )}
+
+      {/* ══ MODAL PRESTATION ══ */}
+      {svcOpen && (
+        <div className="ovl" onClick={e=>e.target===e.currentTarget&&setSvcOpen(false)}>
+          <div className="mdl">
+            <div className="mdl-h">
+              <h3>{svcForm.id ? 'Modifier la prestation' : 'Nouvelle prestation'}</h3>
+              <button className="b-icon" onClick={()=>setSvcOpen(false)}>×</button>
+            </div>
+
+            <label className="lbl">Nom *</label>
+            <input className="f" value={svcForm.nom_fr}
+              onChange={e=>setSvcForm(f=>({...f,nom_fr:e.target.value}))}
+              placeholder="Powder Brows" />
+
+            <div style={{ height:12 }}/>
+            <label className="lbl">Catégorie *</label>
+            <select className="f" value={svcForm.category_id}
+              onChange={e=>setSvcForm(f=>({...f,category_id:e.target.value}))}>
+              <option value="">Choisir...</option>
+              {cats.map(c=><option key={c.id} value={c.id}>{c.nom_fr}</option>)}
+            </select>
+
+            <div style={{ height:12 }}/>
+            <label className="lbl">Description</label>
+            <textarea className="f" style={{ minHeight:70, resize:'vertical' }} value={svcForm.desc_fr}
+              onChange={e=>setSvcForm(f=>({...f,desc_fr:e.target.value}))} />
+
+            <div style={{ height:12 }}/>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div>
+                <label className="lbl">Prix (FDJ)</label>
+                <input className="f" type="number" value={svcForm.prix} disabled={svcForm.prix_sur_devis}
+                  onChange={e=>setSvcForm(f=>({...f,prix:e.target.value}))}
+                  style={svcForm.prix_sur_devis?{opacity:.4}:undefined} />
+              </div>
+              <div>
+                <label className="lbl">Durée (min)</label>
+                <input className="f" type="number" value={svcForm.duree_minutes}
+                  onChange={e=>setSvcForm(f=>({...f,duree_minutes:e.target.value}))} />
+              </div>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:16 }}>
+              {([
+                ['prix_sur_devis','Prix sur devis'],
+                ['is_pmu','Prestation PMU (suivi retouches)'],
+                ['actif','Visible sur le site'],
+              ] as const).map(([k,label])=>(
+                <label key={k} style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+                  <button className={`sw${svcForm[k]?' on':''}`} type="button"
+                    onClick={()=>setSvcForm(f=>({...f,[k]:!f[k]}))} />
+                  <span style={{ fontSize:13, color:T.black }}>{label}</span>
+                </label>
+              ))}
+            </div>
+
+            <div style={{ display:'flex', gap:9, marginTop:22 }}>
+              <button className="b-ghost" onClick={()=>setSvcOpen(false)}>Annuler</button>
+              <button className="b-primary" style={{flex:1}} onClick={saveSvc}
+                disabled={saving||!svcForm.nom_fr||!svcForm.category_id}>
+                {saving?'Enregistrement...':svcForm.id?'Enregistrer':'Créer'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Add promo modal */}
-      {addingPromo && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(26,26,26,0.65)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center' }}
-          onClick={() => setAddingPromo(false)}>
-          <div style={{ background:T.offwhite, borderRadius:8, padding:32, width:420 }} onClick={e => e.stopPropagation()}>
-            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:20 }}>
-              <h3 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:22, fontWeight:300 }}>Nouvelle promotion</h3>
-              <button onClick={() => setAddingPromo(false)} style={{ background:'transparent', border:'none', cursor:'pointer', fontSize:20, color:T.muted }}>×</button>
+      {/* ══ MODAL CATÉGORIE ══ */}
+      {catOpen && (
+        <div className="ovl" onClick={e=>e.target===e.currentTarget&&setCatOpen(false)}>
+          <div className="mdl">
+            <div className="mdl-h">
+              <h3>{catForm.id ? 'Modifier la catégorie' : 'Nouvelle catégorie'}</h3>
+              <button className="b-icon" onClick={()=>setCatOpen(false)}>×</button>
             </div>
-            {[
-              { key:'nom', label:'Nom *', type:'text' },
-              { key:'remise_pct', label:'Remise % (ou laisser vide)', type:'number' },
-              { key:'remise_fixe', label:'Remise fixe FDJ (ou laisser vide)', type:'number' },
-              { key:'date_debut', label:'Date début *', type:'date' },
-              { key:'date_fin', label:'Date fin *', type:'date' },
-            ].map(f => (
-              <div key={f.key} style={{ marginBottom:12 }}>
-                <label style={{ fontSize:10, fontWeight:600, letterSpacing:'0.12em', color:T.muted, textTransform:'uppercase', display:'block', marginBottom:5 }}>{f.label}</label>
-                <input type={f.type} value={(promoForm as Record<string, string | boolean>)[f.key] as string || ''} onChange={e => setPromoForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  style={{ width:'100%', padding:'9px 12px', border:`1px solid ${T.beige}`, borderRadius:4, fontFamily:'Manrope,sans-serif', fontSize:13, outline:'none', background:'white' }} />
-              </div>
-            ))}
-            <div style={{ marginBottom:16 }}>
-              <label style={{ fontSize:10, fontWeight:600, letterSpacing:'0.12em', color:T.muted, textTransform:'uppercase', display:'block', marginBottom:5 }}>Prestation (optionnel)</label>
-              <select value={promoForm.service_id} onChange={e => setPromoForm(p => ({ ...p, service_id: e.target.value }))}
-                style={{ width:'100%', padding:'9px 12px', border:`1px solid ${T.beige}`, borderRadius:4, fontFamily:'Manrope,sans-serif', fontSize:13, outline:'none', background:'white', color:T.black }}>
-                <option value="">Toutes les prestations</option>
-                {services.map(s => <option key={s.id} value={s.id}>{s.nom_fr}</option>)}
-              </select>
+
+            <label className="lbl">Nom *</label>
+            <input className="f" value={catForm.nom_fr}
+              onChange={e=>setCatForm(f=>({...f,nom_fr:e.target.value}))}
+              placeholder="PMU — Sourcils" />
+
+            <div style={{ height:12 }}/>
+            <label className="lbl">Description</label>
+            <input className="f" value={catForm.desc_fr}
+              onChange={e=>setCatForm(f=>({...f,desc_fr:e.target.value}))} />
+
+            <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', marginTop:16 }}>
+              <button className={`sw${catForm.actif?' on':''}`} type="button"
+                onClick={()=>setCatForm(f=>({...f,actif:!f.actif}))} />
+              <span style={{ fontSize:13, color:T.black }}>Visible sur le site</span>
+            </label>
+
+            <div style={{ display:'flex', gap:9, marginTop:22 }}>
+              <button className="b-ghost" onClick={()=>setCatOpen(false)}>Annuler</button>
+              <button className="b-primary" style={{flex:1}} onClick={saveCat} disabled={saving||!catForm.nom_fr}>
+                {saving?'Enregistrement...':catForm.id?'Enregistrer':'Créer'}
+              </button>
             </div>
-            <button onClick={savePromo} style={{ width:'100%', padding:'12px', borderRadius:4, border:'none', cursor:'pointer', background:T.black, color:T.offwhite, fontSize:13, fontWeight:600, fontFamily:'Manrope,sans-serif' }}>
-              Créer la promotion
-            </button>
           </div>
         </div>
       )}

@@ -1,245 +1,272 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { Employee, EmployeeSchedule } from '@/types'
+import type { Employee } from '@/types'
 
-const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', offwhite:'#F9F6F2', muted:'#8A7A74' }
+const T = { gold:'#C9A96A', black:'#1A1A1A', muted:'#8A7A74' }
 
-const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const HOURS = ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30',
+               '13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00']
 
-function getWeekDates(offset = 0): Date[] {
-  const now = new Date()
-  const day = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    return d
-  })
+type Block = {
+  id: string
+  employee_id: string
+  date_jour: string
+  heure_debut: string | null
+  heure_fin: string | null
+  est_disponible: boolean
+  notes: string | null
 }
 
-const fmt = (d: Date) => d.toISOString().split('T')[0]
+const iso = (d: Date) => {
+  const x = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+  return x.toISOString().split('T')[0]
+}
+const fmtDay = (s: string) =>
+  new Date(s + 'T00:00:00').toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' })
+const hm = (t: string | null) => (t ? t.slice(0,5) : '')
 
 export default function PlanningPage() {
   const supabase = createClient()
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null)
-  const [weekOffset, setWeekOffset] = useState(0)
-  const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule>>({})
-  const [loading, setLoading] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [slotForm, setSlotForm] = useState({ debut: '09:00', fin: '19:00' })
+  const [empId, setEmpId] = useState<string>('')
+  const [blocks, setBlocks] = useState<Block[]>([])
+  const [loading, setLoading] = useState(true)
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date()
+    const day = d.getDay()
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+    d.setHours(0,0,0,0)
+    return d
+  })
 
-  const weekDates = getWeekDates(weekOffset)
+  const [open, setOpen] = useState(false)
+  const [fDate, setFDate] = useState(iso(new Date()))
+  const [fMode, setFMode] = useState<'journee' | 'creneau'>('creneau')
+  const [fStart, setFStart] = useState('09:00')
+  const [fEnd, setFEnd] = useState('12:00')
+  const [fNote, setFNote] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    supabase.from('employees').select('*').eq('actif', true).order('prenom')
-      .then(({ data }) => {
-        const emps = (data as Employee[]) || []
-        setEmployees(emps)
-        if (emps.length > 0 && !selectedEmp) setSelectedEmp(emps[0])
-      })
-  }, [])
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + i)
+    return iso(d)
+  })
 
-  const loadSchedules = useCallback(async () => {
-    if (!selectedEmp) return
+  const load = useCallback(async () => {
     setLoading(true)
-    const dates = weekDates.map(fmt)
-    const { data } = await supabase
-      .from('employee_schedules')
-      .select('*, slots:schedule_slots(*)')
-      .eq('employee_id', selectedEmp.id)
-      .in('date_jour', dates)
-    const map: Record<string, EmployeeSchedule> = {}
-    ;(data as EmployeeSchedule[] || []).forEach(s => { map[s.date_jour] = s })
-    setSchedules(map)
-    setLoading(false)
-  }, [selectedEmp, weekOffset])
+    const { data: emps } = await supabase
+      .from('employees').select('*').eq('actif', true).order('prenom')
+    const list = (emps as Employee[]) || []
+    setEmployees(list)
 
-  useEffect(() => { loadSchedules() }, [loadSchedules])
+    const current = empId || list[0]?.id || ''
+    if (!empId && current) setEmpId(current)
 
-  async function toggleDay(date: Date, available: boolean) {
-    if (!selectedEmp) return
-    const dateStr = fmt(date)
-    const existing = schedules[dateStr]
-    if (existing) {
-      await supabase.from('employee_schedules').update({ est_disponible: available }).eq('id', existing.id)
+    if (current) {
+      const { data } = await supabase
+        .from('employee_schedules')
+        .select('*')
+        .eq('employee_id', current)
+        .gte('date_jour', days[0])
+        .lte('date_jour', days[6])
+        .eq('est_disponible', false)
+      setBlocks((data as Block[]) || [])
     } else {
-      await supabase.from('employee_schedules').insert({ employee_id: selectedEmp.id, date_jour: dateStr, est_disponible: available })
+      setBlocks([])
     }
-    loadSchedules()
-  }
+    setLoading(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empId, weekStart])
 
-  async function addSlot(dateStr: string) {
-    if (!selectedEmp) return
-    let schedId = schedules[dateStr]?.id
-    if (!schedId) {
-      const { data } = await supabase.from('employee_schedules').insert({
-        employee_id: selectedEmp.id, date_jour: dateStr, est_disponible: true
-      }).select().single()
-      schedId = data?.id
+  useEffect(() => { load() }, [load])
+
+  async function save() {
+    if (!empId) return
+    setSaving(true)
+    const payload: Record<string, string | boolean | null> = {
+      employee_id: empId,
+      date_jour: fDate,
+      heure_debut: fMode === 'journee' ? null : fStart + ':00',
+      heure_fin:   fMode === 'journee' ? null : fEnd + ':00',
+      est_disponible: false,
+      notes: fNote || null,
     }
-    if (schedId) {
-      await supabase.from('schedule_slots').insert({ schedule_id: schedId, heure_debut: slotForm.debut + ':00', heure_fin: slotForm.fin + ':00' })
-      loadSchedules()
-    }
-    setEditing(null)
+    await supabase.from('employee_schedules').insert(payload)
+    setSaving(false)
+    setOpen(false)
+    setFNote('')
+    load()
   }
 
-  async function removeSlot(slotId: string) {
-    await supabase.from('schedule_slots').delete().eq('id', slotId)
-    loadSchedules()
+  async function remove(id: string) {
+    await supabase.from('employee_schedules').delete().eq('id', id)
+    load()
   }
 
-  async function duplicateWeek() {
-    if (!selectedEmp) return
-    const sourceDates = weekDates.map(fmt)
-    const targetDates = getWeekDates(weekOffset + 1).map(fmt)
-    await supabase.rpc('duplicate_schedule', {
-      p_employee_id: selectedEmp.id,
-      p_source_date: sourceDates[0],
-      p_target_dates: targetDates,
-    })
-    setWeekOffset(w => w + 1)
+  function openFor(date: string) {
+    setFDate(date); setFMode('creneau'); setFStart('09:00'); setFEnd('12:00'); setFNote('')
+    setOpen(true)
   }
 
-  async function addAbsence(dateStr: string, type: string) {
-    if (!selectedEmp) return
-    await supabase.from('employee_absences').insert({
-      employee_id: selectedEmp.id,
-      type_absence: type,
-      date_debut: dateStr,
-      date_fin: dateStr,
-    })
-    // Désactiver le jour
-    await toggleDay(new Date(dateStr), false)
+  function shiftWeek(dir: -1 | 1) {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + dir * 7)
+    setWeekStart(d)
   }
+
+  const byDay = (date: string) => blocks.filter(b => b.date_jour === date)
+  const todayStr = iso(new Date())
 
   return (
-    <div style={{ padding:32, maxWidth:1100 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:28 }}>
-        <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:32, fontWeight:300 }}>Planning</h1>
-        <button onClick={duplicateWeek} style={{
-          padding:'9px 18px', borderRadius:4, border:`1px solid ${T.beige}`,
-          background:'white', cursor:'pointer', fontSize:12, fontWeight:500,
-          color:T.muted, fontFamily:'Manrope,sans-serif',
-        }}>Copier semaine suivante →</button>
+    <div className="pg" style={{ padding:'26px 26px 60px' }}>
+      <div className="ph">
+        <div>
+          <h1>Planning</h1>
+          <div className="sub">Marquez les créneaux où l&apos;équipe n&apos;est pas disponible</div>
+        </div>
+        <button className="b-gold" onClick={() => openFor(todayStr)}>+ Indisponibilité</button>
       </div>
 
-      {/* Sélection employé */}
-      <div style={{ display:'flex', gap:8, marginBottom:24, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
         {employees.map(e => (
-          <button key={e.id} onClick={() => setSelectedEmp(e)} style={{
-            padding:'8px 16px', borderRadius:4, border:`1px solid ${selectedEmp?.id === e.id ? T.gold : T.beige}`,
-            background: selectedEmp?.id === e.id ? '#FBF7EE' : 'white',
-            cursor:'pointer', fontSize:12, fontWeight:500, fontFamily:'Manrope,sans-serif',
-            color: selectedEmp?.id === e.id ? T.black : T.muted,
-          }}>{e.prenom} {e.nom}</button>
+          <button key={e.id} className={`chip${empId === e.id ? ' on' : ''}`}
+            onClick={() => setEmpId(e.id)}>
+            {e.prenom} {e.nom}
+          </button>
         ))}
+        {employees.length === 0 && !loading && (
+          <div style={{ fontSize:12, color:T.muted }}>
+            Aucune employée active — ajoutez-en dans Équipe.
+          </div>
+        )}
       </div>
 
-      {/* Navigation semaine */}
-      <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
-        <button onClick={() => setWeekOffset(w => w - 1)} style={{ background:'transparent', border:`1px solid ${T.beige}`, borderRadius:4, padding:'6px 14px', cursor:'pointer', fontSize:14, color:T.muted }}>←</button>
-        <span style={{ fontSize:13, fontWeight:500, color:T.black }}>
-          {weekDates[0].toLocaleDateString('fr-FR', { day:'numeric', month:'long' })} – {weekDates[6].toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' })}
-        </span>
-        <button onClick={() => setWeekOffset(w => w + 1)} style={{ background:'transparent', border:`1px solid ${T.beige}`, borderRadius:4, padding:'6px 14px', cursor:'pointer', fontSize:14, color:T.muted }}>→</button>
-        <button onClick={() => setWeekOffset(0)} style={{ background:'transparent', border:'none', cursor:'pointer', fontSize:11, color:T.muted, textDecoration:'underline' }}>Aujourd&apos;hui</button>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, gap:10 }}>
+        <button className="b-icon" onClick={() => shiftWeek(-1)}>‹</button>
+        <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:17, color:T.black, textAlign:'center' }}>
+          {new Date(days[0]+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
+          {' – '}
+          {new Date(days[6]+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}
+        </div>
+        <button className="b-icon" onClick={() => shiftWeek(1)}>›</button>
       </div>
 
       {loading ? (
-        <div style={{ color:T.muted, fontSize:13 }}>Chargement...</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
+          {Array.from({length:7}).map((_,i) => <div key={i} className="skel" style={{height:150}}/>)}
+        </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:8 }}>
-          {weekDates.map((date, i) => {
-            const dateStr = fmt(date)
-            const sched = schedules[dateStr]
-            const isAvailable = sched?.est_disponible ?? false
-            const isPast = date < new Date(new Date().setHours(0,0,0,0))
-            const isToday = fmt(date) === fmt(new Date())
-
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
+          {days.map(d => {
+            const items = byDay(d)
+            const isToday = d === todayStr
+            const fullDay = items.some(i => !i.heure_debut)
             return (
-              <div key={i} style={{
-                background: isPast ? T.offwhite : 'white',
-                border: `1px solid ${isToday ? T.gold : T.beige}`,
-                borderRadius:6, overflow:'hidden',
-                opacity: isPast ? 0.6 : 1,
+              <div key={d} style={{
+                background:'#fff',
+                border:`1.5px solid ${isToday ? T.gold : '#EFE6DC'}`,
+                borderRadius:16, padding:'13px 12px', minHeight:150,
+                display:'flex', flexDirection:'column',
               }}>
-                {/* Entête jour */}
-                <div style={{
-                  padding:'10px 12px', background: isAvailable && !isPast ? T.black : T.beige,
-                  display:'flex', justifyContent:'space-between', alignItems:'center',
-                }}>
-                  <div>
-                    <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.12em', color: isAvailable && !isPast ? T.gold : T.muted, textTransform:'uppercase' }}>{DAYS_FR[i]}</div>
-                    <div style={{ fontSize:16, fontWeight:300, fontFamily:'Cormorant Garamond,serif', color: isAvailable && !isPast ? T.offwhite : T.black }}>{date.getDate()}</div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                  <span style={{ fontSize:11, fontWeight:600, color: isToday ? T.gold : T.muted, textTransform:'capitalize' }}>
+                    {fmtDay(d)}
+                  </span>
+                  <button className="b-icon" style={{ width:24, height:24, fontSize:13, borderRadius:8 }}
+                    onClick={() => openFor(d)}>+</button>
+                </div>
+
+                {fullDay ? (
+                  <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span className="badge" style={{ background:'#FDECEC', color:'#C62828' }}>Journée fermée</span>
                   </div>
-                  {!isPast && (
-                    <button onClick={() => toggleDay(date, !isAvailable)} style={{
-                      width:24, height:24, borderRadius:12, border:'none', cursor:'pointer',
-                      background: isAvailable ? '#4CAF50' : '#F44336', color:'white', fontSize:12, display:'flex', alignItems:'center', justifyContent:'center',
-                    }}>{isAvailable ? '✓' : '×'}</button>
-                  )}
-                </div>
-
-                {/* Slots */}
-                <div style={{ padding:8 }}>
-                  {(sched?.slots || []).map((slot, j) => (
-                    <div key={j} style={{
-                      display:'flex', justifyContent:'space-between', alignItems:'center',
-                      padding:'5px 8px', background:T.offwhite, borderRadius:3, marginBottom:4, fontSize:11,
-                    }}>
-                      <span style={{ color:T.black, fontWeight:500 }}>
-                        {(slot as { heure_debut: string }).heure_debut?.slice(0,5)}–{(slot as { heure_fin: string }).heure_fin?.slice(0,5)}
-                      </span>
-                      {!isPast && (
-                        <button onClick={() => removeSlot((slot as { id: string }).id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:T.muted, fontSize:13 }}>×</button>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Ajouter slot */}
-                  {!isPast && isAvailable && (
-                    editing === dateStr ? (
-                      <div>
-                        <div style={{ display:'flex', gap:4, marginBottom:4 }}>
-                          <input type="time" value={slotForm.debut} onChange={e => setSlotForm(f => ({ ...f, debut: e.target.value }))}
-                            style={{ flex:1, padding:'4px 6px', border:`1px solid ${T.beige}`, borderRadius:3, fontSize:10, fontFamily:'Manrope,sans-serif', outline:'none' }} />
-                          <input type="time" value={slotForm.fin} onChange={e => setSlotForm(f => ({ ...f, fin: e.target.value }))}
-                            style={{ flex:1, padding:'4px 6px', border:`1px solid ${T.beige}`, borderRadius:3, fontSize:10, fontFamily:'Manrope,sans-serif', outline:'none' }} />
+                ) : items.length === 0 ? (
+                  <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:11, color:'#C9BDB2' }}>Disponible</div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                    {items.map(b => (
+                      <div key={b.id} style={{
+                        display:'flex', alignItems:'center', justifyContent:'space-between', gap:6,
+                        background:'#FDF0F0', border:'1px solid #F5D9D9', borderRadius:9, padding:'6px 8px',
+                      }}>
+                        <div>
+                          <div style={{ fontSize:11, fontWeight:600, color:'#C62828' }}>
+                            {hm(b.heure_debut)} – {hm(b.heure_fin)}
+                          </div>
+                          {b.notes && <div style={{ fontSize:9.5, color:'#A87070' }}>{b.notes}</div>}
                         </div>
-                        <div style={{ display:'flex', gap:4 }}>
-                          <button onClick={() => addSlot(dateStr)} style={{ flex:1, padding:'5px', borderRadius:3, border:'none', cursor:'pointer', background:T.gold, color:T.black, fontSize:10, fontWeight:600, fontFamily:'Manrope,sans-serif' }}>OK</button>
-                          <button onClick={() => setEditing(null)} style={{ padding:'5px 8px', borderRadius:3, border:`1px solid ${T.beige}`, cursor:'pointer', background:'white', fontSize:10, color:T.muted, fontFamily:'Manrope,sans-serif' }}>✕</button>
-                        </div>
+                        <button onClick={() => remove(b.id)} style={{
+                          background:'transparent', border:'none', color:'#C62828', fontSize:14, padding:0, lineHeight:1,
+                        }}>×</button>
                       </div>
-                    ) : (
-                      <button onClick={() => setEditing(dateStr)} style={{
-                        width:'100%', padding:'5px', borderRadius:3, border:`1px dashed ${T.nude}`,
-                        background:'transparent', cursor:'pointer', fontSize:10, color:T.muted, fontFamily:'Manrope,sans-serif',
-                      }}>+ Ajouter</button>
-                    )
-                  )}
+                    ))}
+                  </div>
+                )}
 
-                  {/* Absence rapide */}
-                  {!isPast && (
-                    <div style={{ marginTop:4 }}>
-                      <select onChange={e => { if (e.target.value) { addAbsence(dateStr, e.target.value); e.target.value = '' }}}
-                        style={{ width:'100%', padding:'4px 6px', border:`1px solid ${T.beige}`, borderRadius:3, fontSize:10, fontFamily:'Manrope,sans-serif', outline:'none', color:T.muted, background:'white' }}>
-                        <option value="">Marquer absence...</option>
-                        <option value="conge">Congé</option>
-                        <option value="absence">Absence</option>
-                        <option value="indisponibilite">Indispo</option>
-                        <option value="rdv_perso">RDV perso</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
+                {items.length > 0 && (
+                  <button className="b-ghost" style={{ marginTop:'auto', padding:'6px 10px', fontSize:10.5 }}
+                    onClick={() => items.forEach(i => remove(i.id))}>
+                    Tout libérer
+                  </button>
+                )}
               </div>
             )
           })}
+        </div>
+      )}
+
+      {open && (
+        <div className="ovl" onClick={e => e.target === e.currentTarget && setOpen(false)}>
+          <div className="mdl">
+            <div className="mdl-h">
+              <h3>Marquer une indisponibilité</h3>
+              <button className="b-icon" onClick={() => setOpen(false)}>×</button>
+            </div>
+
+            <label className="lbl">Date</label>
+            <input className="f" type="date" value={fDate} onChange={e => setFDate(e.target.value)} />
+
+            <div style={{ height:14 }} />
+            <label className="lbl">Type</label>
+            <div style={{ display:'flex', gap:6, marginBottom:14 }}>
+              <button className={`chip${fMode === 'creneau' ? ' on' : ''}`} style={{ flex:1 }}
+                onClick={() => setFMode('creneau')}>Créneau précis</button>
+              <button className={`chip${fMode === 'journee' ? ' on' : ''}`} style={{ flex:1 }}
+                onClick={() => setFMode('journee')}>Journée entière</button>
+            </div>
+
+            {fMode === 'creneau' && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+                <div>
+                  <label className="lbl">De</label>
+                  <select className="f" value={fStart} onChange={e => setFStart(e.target.value)}>
+                    {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="lbl">À</label>
+                  <select className="f" value={fEnd} onChange={e => setFEnd(e.target.value)}>
+                    {HOURS.filter(h => h > fStart).map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <label className="lbl">Motif (optionnel)</label>
+            <input className="f" value={fNote} onChange={e => setFNote(e.target.value)}
+              placeholder="Formation, congé, rendez-vous personnel..." />
+
+            <div style={{ display:'flex', gap:9, marginTop:20 }}>
+              <button className="b-ghost" onClick={() => setOpen(false)}>Annuler</button>
+              <button className="b-primary" style={{ flex:1 }} onClick={save}
+                disabled={saving || !empId || (fMode === 'creneau' && fEnd <= fStart)}>
+                {saving ? 'Enregistrement...' : 'Bloquer ce créneau'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
