@@ -13,6 +13,15 @@ const iso = (d: Date) => {
 const METHODS = ['cash','cac_pay','waafi','d_money'] as const
 const M_LABEL: Record<string,string> = { cash:'Cash', cac_pay:'CAC PAY', waafi:'WAAFI', d_money:'D-Money' }
 
+const STATUTS = [
+  { key:'a_valider', label:'À valider', bg:'#FFF8E1', fg:'#B8860B' },
+  { key:'creee',     label:'En attente', bg:'#E3F2FD', fg:'#1565C0' },
+  { key:'confirmee', label:'Confirmé',   bg:'#E8F5E9', fg:'#2E7D32' },
+  { key:'terminee',  label:'Terminé',    bg:'#F3E5F5', fg:'#6A1B9A' },
+  { key:'annulee',   label:'Annulé',     bg:'#FDECEC', fg:'#C62828' },
+  { key:'no_show',   label:'Absente',    bg:'#ECEFF1', fg:'#546E7A' },
+]
+
 const waLink = (tel: string, msg: string) =>
   `https://wa.me/${tel.replace(/[^\d]/g,'')}?text=${encodeURIComponent(msg)}`
 
@@ -53,6 +62,7 @@ export default function CaissePage() {
   // RDV
   const [appts, setAppts] = useState<Appt[]>([])
   const [apptDate, setApptDate] = useState(iso(new Date()))
+  const [statutFilter, setStatutFilter] = useState('')
 
   // Clôture
   const [dayPayments, setDayPayments] = useState<{montant:number;methode:string}[]>([])
@@ -177,6 +187,11 @@ export default function CaissePage() {
       setToast(`Encaissé — ${FDJ(total)}`)
       setTimeout(()=>setToast(''), 3000)
     } finally { setPaying(false) }
+  }
+
+  async function setStatut(id: string, statut: string) {
+    await supabase.from('appointments').update({ statut }).eq('id', id)
+    loadAppts()
   }
 
   async function markPaid(a: Appt) {
@@ -462,6 +477,11 @@ export default function CaissePage() {
             <input className="f" type="date" value={apptDate} onChange={e=>setApptDate(e.target.value)}
               style={{ maxWidth:180 }} />
             <button className="b-ghost" onClick={()=>setApptDate(today)}>Aujourd&apos;hui</button>
+            <select className="f" value={statutFilter} onChange={e=>setStatutFilter(e.target.value)}
+              style={{ maxWidth:150, marginBottom:0 }}>
+              <option value="">Tous les statuts</option>
+              {STATUTS.map(st=><option key={st.key} value={st.key}>{st.label}</option>)}
+            </select>
             <div style={{ marginLeft:'auto', display:'flex', gap:5 }}>
               {METHODS.map(m=>(
                 <button key={m} className={`chip gold${method===m?' on':''}`}
@@ -474,8 +494,8 @@ export default function CaissePage() {
             <div className="empty">Aucun rendez-vous ce jour.</div>
           ) : (
             <div className="rows">
-              {appts.map(a=>(
-                <div key={a.id} className="row" style={{ gridTemplateColumns:'auto 1fr auto auto' }}>
+              {appts.filter(a=>!statutFilter||a.statut===statutFilter).map(a=>(
+                <div key={a.id} className="row" style={{ gridTemplateColumns:'auto minmax(0,1fr) auto auto' }}>
                   <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:19, color:T.gold, minWidth:52 }}>
                     {a.heure_debut?.slice(0,5)}
                   </div>
@@ -490,7 +510,16 @@ export default function CaissePage() {
                   <div style={{ fontSize:13, fontWeight:600, color:T.black, whiteSpace:'nowrap' }}>
                     {FDJ(a.prix_final)}
                   </div>
-                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                    <select value={a.statut} onChange={e=>setStatut(a.id, e.target.value)}
+                      style={{
+                        border:'none', borderRadius:100, padding:'5px 10px', fontSize:10.5, fontWeight:600,
+                        cursor:'pointer', fontFamily:'Manrope,sans-serif', appearance:'none', textAlign:'center',
+                        background: STATUTS.find(x=>x.key===a.statut)?.bg || '#F2EDE8',
+                        color: STATUTS.find(x=>x.key===a.statut)?.fg || '#8A7A74',
+                      }}>
+                      {STATUTS.map(st=><option key={st.key} value={st.key}>{st.label}</option>)}
+                    </select>
                     {a.client?.telephone && (
                       <a className="b-icon" title="Envoyer un rappel WhatsApp"
                         href={waLink(a.client.telephone,

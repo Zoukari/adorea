@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
     .eq('telephone', tel)
     .single()
 
-  // Ne retourner que si au moins 1 prestation (pour pré-remplir)
-  if (data && data.total_prestations > 0) {
+  // Retourne la cliente si elle existe (nom + nb de visites)
+  if (data) {
     return NextResponse.json({ client: data })
   }
   return NextResponse.json({ client: null })

@@ -164,16 +164,28 @@ type LiveSection = {
   label:{FR:string;EN:string;AR:string}
   desc:{FR:string;EN:string;AR:string}
   items: LiveItem[]
-  img:string; kw:string; bg:string
+  img:string; kw:string; bg:string; pos:string
 }
 
 const IMG_POOL = [
-  { img:'/images/pmu-brows.webp',      kw:'PRÉCISION · RÉSULTATS NATURELS',  bg:C.noir },
-  { img:'/images/levres-closeup.webp', kw:'COLORATION SUBTILE · LONGUE TENUE', bg:C.brun },
-  { img:'/images/makeup-profile.webp', kw:'DES REGARDS QUI MARQUENT',        bg:'#120E0A' },
-  { img:'/images/nails-hero.webp',     kw:'ÉLÉGANCE AU BOUT DES ONGLES',     bg:C.brun },
+  { img:'/images/pmu-brows.webp',      kw:'PRÉCISION · SAVOIR-FAIRE · RÉSULTATS NATURELS', bg:C.noir, pos:'center 30%',
+    desc:{ FR:'Restructuration et définition naturelle du regard. Powder Brows, Combo Brows — un résultat naturel et durable, réalisé avec des pigments certifiés.',
+           EN:'Natural brow restructuring. Powder Brows, Combo Brows — lasting, natural results with certified pigments.',
+           AR:'إعادة هيكلة وتعريف طبيعي للحواجب بأصباغ معتمدة — نتائج طبيعية دائمة.' } },
+  { img:'/images/levres-closeup.webp', kw:'COLORATION SUBTILE · LONGUE TENUE', bg:C.brun, pos:'center 35%',
+    desc:{ FR:'Des lèvres subtilement colorées et redessinées. Candy Lips — une teinte naturelle qui sublime votre sourire au quotidien.',
+           EN:'Subtly colored and redefined lips. Candy Lips — a natural shade that enhances your smile every day.',
+           AR:'شفاه ملونة ومعاد رسمها بلطف — لون طبيعي يبرز ابتسامتك.' } },
+  { img:'/images/makeup-profile.webp', kw:'DES REGARDS QUI MARQUENT · POUR TOUTES VOS OCCASIONS', bg:'#120E0A', pos:'center 25%',
+    desc:{ FR:'Maquillage professionnel pour toutes vos occasions. Du quotidien au jour de mariage, chaque regard est sculpté avec précision et adapté à votre carnation.',
+           EN:'Professional makeup for every occasion. From daily looks to your wedding day, every look is crafted for your complexion.',
+           AR:'مكياج احترافي لجميع مناسباتك — من اليومي إلى يوم زفافك.' } },
+  { img:'/images/nails-hero.webp',     kw:'ÉLÉGANCE JUSQU\'AU BOUT DES ONGLES', bg:C.brun, pos:'center 40%',
+    desc:{ FR:'Manucure classique, semi-permanent et Nail Art. Une finition impeccable et des teintes qui vous ressemblent, jusqu\'au bout des ongles.',
+           EN:'Classic manicure, semi-permanent and Nail Art. Flawless finish and shades that suit you.',
+           AR:'مانيكير كلاسيكي وشبه دائم وفن الأظافر — لمسة نهائية لا تشوبها شائبة.' } },
 ]
-// Association image par mot-clé de catégorie
+
 function pickVisual(slug: string, nom: string, idx: number) {
   const t = (slug + ' ' + nom).toLowerCase()
   if (t.includes('sourcil') || t.includes('brow')) return IMG_POOL[0]
@@ -217,12 +229,12 @@ function useLiveServices() {
           cat: nom,
           label: { FR: nom, EN: String(cat.nom_en || nom), AR: String(cat.nom_ar || nom) },
           desc:  {
-            FR: String(cat.desc_fr || ''),
-            EN: String(cat.desc_en || cat.desc_fr || ''),
-            AR: String(cat.desc_ar || cat.desc_fr || ''),
+            FR: String(cat.desc_fr || v.desc.FR),
+            EN: String(cat.desc_en || cat.desc_fr || v.desc.EN),
+            AR: String(cat.desc_ar || cat.desc_fr || v.desc.AR),
           },
           items,
-          img: v.img, kw: v.kw, bg: v.bg,
+          img: v.img, kw: v.kw, bg: v.bg, pos: v.pos,
         }
       }).filter(sec => sec.items.length > 0)
 
@@ -900,7 +912,21 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
   const offset = firstDay===0 ? 6 : firstDay-1
   const dim = new Date(calYear, calMonth+1, 0).getDate()
   const DAYS = ['L','M','M','J','V','S','D']
-  const SLOTS = ['09:00','09:30','10:00','10:30','11:00','11:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00']
+  const [slots, setSlots] = useState<string[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+
+  // Créneaux réels : horaires d'ouverture − indisponibilités − RDV pris
+  useEffect(() => {
+    if (!selDate || !selSvc) { setSlots([]); return }
+    let alive = true
+    setSlotsLoading(true); setSlot(null)
+    fetch(`/api/slots?service_id=${selSvc.id}&date=${selDate}`)
+      .then(r => r.json())
+      .then(d => { if (alive) setSlots(Array.isArray(d.slots) ? d.slots : []) })
+      .catch(() => { if (alive) setSlots([]) })
+      .finally(() => { if (alive) setSlotsLoading(false) })
+    return () => { alive = false }
+  }, [selDate, selSvc])
 
   const cats = [...new Set(sections.map(s => s.cat))]
   const filteredSvcs = selCat ? sections.filter(s => s.cat===selCat) : sections
@@ -945,8 +971,63 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
 
   function next() { if (validate(step)) setStep(s=>s+1) }
 
-  function reserve() {
-    window.open(`https://wa.me/${WA}?text=${encodeURIComponent(buildMsg())}`, '_blank')
+  const [knownClient, setKnown] = useState<{prenom:string;nom:string;visites:number}|null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitErr, setSubmitErr] = useState('')
+
+  async function reserve() {
+    if (!selSvc || !selDate || !selSlot) return
+    setSubmitting(true); setSubmitErr('')
+
+    // Ouvre l'onglet tout de suite (sinon Safari bloque le popup)
+    const waTab = window.open('', '_blank')
+
+    try {
+      const res = await fetch('/api/booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: selSvc.id,
+          date: selDate,
+          heure_debut: selSlot,
+          payment_method: (payMethod || 'CASH').toLowerCase().replace(/[\s-]/g,'_'),
+          nom: form.nom, prenom: form.prenom, telephone: form.tel,
+          date_naissance: form.dob || null,
+          grossesse: health[0], diabete: health[1], allergies: health[2],
+          traitement_med: health[3], pb_peau: health[4], herpes: health[5],
+          anticoagulants: health[6],
+          commentaires_sante: [healthNotes, form.notes].filter(Boolean).join(' — ') || null,
+          consent_text: t.consent_text,
+          signature_data: consent ? 'accepted-web' : null,
+        }),
+      })
+      const out = await res.json()
+
+      if (!res.ok) {
+        const map: Record<string,string> = {
+          CASH_NOT_ALLOWED: lang==='FR'
+            ? "Le paiement en espèces est réservé aux clientes déjà venues. Choisissez un autre mode."
+            : 'Cash is reserved for returning clients. Please pick another method.',
+          SLOT_TAKEN: lang==='FR' ? 'Ce créneau vient d\'être pris. Choisissez-en un autre.' : 'This slot was just taken.',
+          OUTSIDE_HOURS: lang==='FR' ? 'Ce créneau est en dehors des horaires d\'ouverture.' : 'Outside opening hours.',
+        }
+        setSubmitErr(map[out.error] || (lang==='FR' ? 'Une erreur est survenue. Réessayez.' : 'An error occurred.'))
+        waTab?.close()
+        setSubmitting(false)
+        return
+      }
+
+      const ref = out.reference ? `\n\n📄 Référence : ${out.reference}` : ''
+      const url = `https://wa.me/${WA}?text=${encodeURIComponent(buildMsg() + ref)}`
+      if (waTab) waTab.location.href = url
+      else window.open(url, '_blank')
+      setSubmitting(false)
+      onClose()
+    } catch {
+      setSubmitErr(lang==='FR' ? 'Connexion impossible. Réessayez.' : 'Connection failed.')
+      waTab?.close()
+      setSubmitting(false)
+    }
   }
 
   const PAY = [
@@ -1012,7 +1093,21 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
               <div style={{fontSize:9,fontWeight:600,letterSpacing:'0.18em',color:C.taupe,textTransform:'uppercase',marginBottom:10}}>
                 {lang==='FR'?'Créneaux disponibles':lang==='EN'?'Available slots':'الأوقات المتاحة'}
               </div>
-              <div className="slots-g">{SLOTS.map(s=><button key={s} className={`slot${selSlot===s?' on':''}`} onClick={()=>setSlot(s)}>{s}</button>)}</div>
+              {slotsLoading ? (
+                <div style={{fontSize:12,color:C.taupe,padding:'10px 0'}}>
+                  {lang==='FR'?'Recherche des créneaux...':lang==='EN'?'Loading slots...':'جاري البحث...'}
+                </div>
+              ) : slots.length === 0 ? (
+                <div style={{fontSize:12,color:'#C62828',padding:'10px 0',lineHeight:1.6}}>
+                  {lang==='FR'?'Aucun créneau disponible ce jour. Choisissez une autre date.'
+                   :lang==='EN'?'No slot available on this day. Please pick another date.'
+                   :'لا توجد مواعيد متاحة في هذا اليوم.'}
+                </div>
+              ) : (
+                <div className="slots-g">
+                  {slots.map(s=><button key={s} className={`slot${selSlot===s?' on':''}`} onClick={()=>setSlot(s)}>{s}</button>)}
+                </div>
+              )}
             </>}
             <div className="cal-note">{lang==='FR'?'* Créneaux indicatifs. Votre experte confirme le créneau définitif sous 24h.':lang==='EN'?'* Indicative slots. Your expert confirms within 24h.':'* مواعيد استرشادية. تؤكد خبيرتك خلال 24 ساعة.'}</div>
           </>
@@ -1028,7 +1123,26 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
             <label className="f-lbl">{lang==='AR'?'الهاتف':lang==='EN'?'Phone *':'Téléphone *'}</label>
             <div style={{marginBottom:13}}>
               <PhoneInput landing value={form.tel} className={`f-in${errors.tel?' err':''}`}
-                onChange={v=>setForm(f=>({...f,tel:v}))} />
+                onChange={async v=>{
+                  setForm(f=>({...f,tel:v}))
+                  if (v.replace(/\D/g,'').length < 8) { setKnown(null); return }
+                  try {
+                    const r = await fetch(`/api/client?tel=${encodeURIComponent(v)}`)
+                    const d = await r.json()
+                    if (d?.client) {
+                      setKnown({ prenom:d.client.prenom, nom:d.client.nom, visites:d.client.total_prestations||0 })
+                      setForm(f=>({...f, prenom:f.prenom||d.client.prenom, nom:f.nom||d.client.nom }))
+                    } else setKnown(null)
+                  } catch { setKnown(null) }
+                }} />
+              {knownClient && (
+                <div style={{marginTop:7,padding:'9px 12px',background:'#F1F8F2',border:'1px solid #A5D6A7',
+                  borderRadius:11,fontSize:11.5,color:'#2E7D32',fontFamily:'Montserrat,sans-serif',lineHeight:1.5}}>
+                  ✓ {lang==='FR'?'Nous vous connaissons':lang==='EN'?'Welcome back':'أهلاً بعودتك'}, {knownClient.prenom} —{' '}
+                  {knownClient.visites} {lang==='FR'?`prestation${knownClient.visites>1?'s':''} déjà réalisée${knownClient.visites>1?'s':''}`
+                    :lang==='EN'?`previous visit${knownClient.visites>1?'s':''}`:'زيارة سابقة'}
+                </div>
+              )}
             </div>
             <label className="f-lbl">{lang==='AR'?'تاريخ الميلاد':lang==='EN'?'Date of birth':'Date de naissance'}</label>
             <input className="f-in" type="date" value={form.dob} onChange={e=>setForm(f=>({...f,dob:e.target.value}))}/>
@@ -1124,11 +1238,19 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
           </>
         )}
 
+        {submitErr && (
+          <div style={{background:'#FFEBEE',border:'1px solid #FFCDD2',borderRadius:12,padding:'11px 13px',
+            fontSize:12,color:'#C62828',lineHeight:1.6,marginTop:12,fontFamily:'Montserrat,sans-serif'}}>
+            {submitErr}
+          </div>
+        )}
+
         <div className="modal-foot">
           {step>0 && <button className="btn-prev-m" onClick={()=>setStep(s=>s-1)}>{t.prev}</button>}
           {step<4 && <button className="btn-or" style={{flex:1,opacity:canNext?1:0.25,cursor:canNext?'pointer':'not-allowed'}} onClick={next} disabled={!canNext}>{t.next}</button>}
-          {step===4 && <button className="btn-or" style={{flex:1,opacity:payMethod?1:0.25,cursor:payMethod?'pointer':'not-allowed'}} onClick={reserve} disabled={!payMethod}>
-            {lang==='FR'?'Réserver via WhatsApp 💬':lang==='EN'?'Book via WhatsApp 💬':'احجزي عبر واتساب 💬'}
+          {step===4 && <button className="btn-or" style={{flex:1,opacity:(payMethod&&!submitting)?1:0.25,cursor:payMethod?'pointer':'not-allowed'}} onClick={reserve} disabled={!payMethod||submitting}>
+            {submitting ? (lang==='FR'?'Enregistrement...':'Saving...')
+              : lang==='FR'?'Réserver via WhatsApp 💬':lang==='EN'?'Book via WhatsApp 💬':'احجزي عبر واتساب 💬'}
           </button>}
         </div>
       </div>
@@ -1293,7 +1415,7 @@ export default function Home() {
         {SECTIONS.map((s,idx)=>(
           <div key={s.id} id={s.id}>
             <div className={`svc-row${idx%2===1?' rev':''}`} style={{background:s.bg}}>
-              <div className={`svc-img-col clip-up ${idx%2===1?'clip-up-brun':'clip-up-dark'} glass-shimmer`}><img src={s.img} alt={s.label[lang]}/></div>
+              <div className={`svc-img-col clip-up ${idx%2===1?'clip-up-brun':'clip-up-dark'} glass-shimmer`}><img src={s.img} alt={s.label[lang]} style={{objectPosition: s.pos || "center top"}}/></div>
               <div className="svc-txt-col" style={{background:s.bg}}>
                 <div className="svc-num rv">{String(idx+1).padStart(2,'0')}</div>
                 <div className="svc-cat-lbl rv" style={{transitionDelay:'0.05s'}}>{s.cat}</div>

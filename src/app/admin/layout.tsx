@@ -10,8 +10,7 @@ const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', of
 
 const NAV = [
   { href:'/admin',              icon:'▦',  label:'Dashboard' },
-  { href:'/admin/caisse',       icon:'💳', label:'Caisse' },
-  { href:'/admin/appointments', icon:'📅', label:'Rendez-vous' },
+  { href:'/admin/caisse',       icon:'💳', label:'Caisse & RDV' },
   { href:'/admin/clients',      icon:'👤', label:'Clientes' },
   { href:'/admin/services',     icon:'✦',  label:'Prestations' },
   { href:'/admin/planning',     icon:'🗓', label:'Planning' },
@@ -186,10 +185,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .row:hover { border-color:#DECFBE; box-shadow:0 2px 10px rgba(26,26,26,.05); }
 
         /* --- Switch --- */
-        .sw { width:36px; height:20px; border-radius:10px; background:#E5DACE; position:relative; cursor:pointer; transition:background .22s; flex-shrink:0; border:none; padding:0; }
+        .sw { width:38px; height:22px; border-radius:11px; background:#E5DACE; position:relative; cursor:pointer; transition:background .22s; flex-shrink:0; border:none; padding:0; display:inline-block; box-sizing:border-box; }
         .sw.on { background:#C9A96A; }
-        .sw::after { content:''; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; transition:left .22s cubic-bezier(.2,0,.2,1); }
+        .sw::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .22s cubic-bezier(.2,0,.2,1); box-shadow:0 1px 3px rgba(0,0,0,.18); }
         .sw.on::after { left:19px; }
+        .sw:disabled { opacity:.4; cursor:not-allowed; }
 
         /* --- États --- */
         .empty { padding:48px 20px; text-align:center; color:#B5A79E; font-size:13px; }
