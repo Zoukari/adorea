@@ -105,9 +105,22 @@ export default function ClientsPage() {
   }
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+    <>
+    <style>{`
+      @media (max-width: 820px) {
+        .cl-shell { flex-direction: column; height: auto !important; overflow: visible !important; }
+        .cl-list { width: 100% !important; border-right: none !important;
+                   border-bottom: 1px solid #EADCC8; max-height: none !important; }
+        .cl-list.hide-mob { display: none !important; }
+        .cl-detail { display: none; width: 100% !important; }
+        .cl-detail.show-mob { display: block !important; }
+        .cl-back { display: flex !important; }
+      }
+      .cl-back { display: none; }
+    `}</style>
+    <div className="cl-shell" style={{ display:'flex', height:'100%', minHeight:'70vh', overflow:'hidden' }}>
       {/* LEFT — Liste */}
-      <div style={{ width:320, background:'white', borderRight:`1px solid ${T.beige}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
+      <div className={`cl-list${(selected||creating||editing)?' hide-mob':''}`} style={{ width:320, background:'white', borderRight:`1px solid ${T.beige}`, display:'flex', flexDirection:'column', flexShrink:0 }}>
         <div style={{ padding:'24px 20px 16px' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:24, fontWeight:300 }}>Clientes</h1>
@@ -148,7 +161,7 @@ export default function ClientsPage() {
       </div>
 
       {/* RIGHT — Détail */}
-      <div style={{ flex:1, overflowY:'auto', background:T.offwhite }}>
+      <div className={`cl-detail${(selected||creating||editing)?" show-mob":""}`} style={{ flex:1, overflowY:'auto', background:T.offwhite }}>
         {!selected && !creating && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:T.muted, fontSize:13 }}>
             Sélectionner une cliente
@@ -260,12 +273,19 @@ export default function ClientsPage() {
                   padding:'9px 16px', borderRadius:4, border:'none', cursor:'pointer',
                   background:'#25D366', color:'white', fontSize:12, fontWeight:600, fontFamily:'Manrope,sans-serif',
                 }}>💬 WhatsApp</button>
+                <button className="cl-back b-ghost" onClick={() => setSelected(null)}
+                  style={{ marginRight:'auto' }}>← Liste</button>
                 <button onClick={() => setEditing({
                   id: selected.id, nom: selected.nom, prenom: selected.prenom,
                   telephone: selected.telephone, email: selected.email || '',
                   date_naissance: selected.date_naissance || '',
                 })} className="b-ghost">✎ Modifier</button>
                 <button onClick={() => setSelected(null)} className="b-ghost">Fermer</button>
+                <button className="b-danger" onClick={async()=>{
+                  if (!confirm(`Supprimer définitivement ${selected.prenom} ${selected.nom} ?\n\nSes rendez-vous et son historique seront également supprimés.`)) return
+                  await supabase.from('clients').delete().eq('id', selected.id)
+                  setSelected(null); load()
+                }}>Supprimer</button>
               </div>
             </div>
 
@@ -464,5 +484,6 @@ export default function ClientsPage() {
         )}
       </div>
     </div>
+    </>
   )
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { z } from 'zod'
+import { phoneKey, toE164 } from '@/lib/phone'
 
 const BookingSchema = z.object({
   service_id:     z.string().uuid(),
@@ -54,8 +55,14 @@ export async function POST(req: NextRequest) {
 
     // 1. Client
     let client_id: string
-    const { data: existing } = await supabaseAdmin
-      .from('clients').select('id, total_prestations').eq('telephone', data.telephone).single()
+    const tel = toE164(data.telephone)
+    const key = phoneKey(tel)
+    const { data: matches } = await supabaseAdmin
+      .from('clients').select('id, total_prestations')
+      .ilike('telephone', `%${key}`)
+      .order('total_prestations', { ascending: false })
+      .limit(1)
+    const existing = matches && matches.length ? matches[0] : null
 
     if (existing) {
       client_id = existing.id
@@ -64,7 +71,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { data: newClient, error: err } = await supabaseAdmin
         .from('clients').insert({
-          nom: data.nom, prenom: data.prenom, telephone: data.telephone,
+          nom: data.nom, prenom: data.prenom, telephone: tel,
           date_naissance: data.date_naissance || null, email: data.email || null,
         }).select('id').single()
       if (err || !newClient) return NextResponse.json({ error: 'CLIENT_CREATE_FAILED' }, { status: 500 })
@@ -72,17 +79,62 @@ export async function POST(req: NextRequest) {
       if (data.payment_method === 'cash') return NextResponse.json({ error: 'CASH_NOT_ALLOWED' }, { status: 400 })
     }
 
-    // 2. RDV
-    const { data: result, error: rdvErr } = await supabaseAdmin.rpc('create_appointment', {
-      p_client_id: client_id, p_service_id: data.service_id, p_date: data.date,
-      p_heure_debut: data.heure_debut + ':00', p_payment_method: data.payment_method,
-      p_promo_code: data.promo_code || null,
-    })
-    if (rdvErr || result?.error) return NextResponse.json({ error: result?.error || rdvErr?.message }, { status: 400 })
+    // 2. RDV — insert direct (pas de RPC : elle exige une employée assignée)
+    const { data: svc } = await supabaseAdmin
+      .from('services').select('prix, prix_sur_devis, duree_minutes, buffer_minutes')
+      .eq('id', data.service_id).single()
 
-    const appointment_id: string = result.appointment_id
+    if (!svc) return NextResponse.json({ error: 'SERVICE_NOT_FOUND' }, { status: 400 })
+
+    const duree = Number(svc.duree_minutes || 60)
+    const [hh, mm] = data.heure_debut.split(':').map(Number)
+    const endMin = hh * 60 + mm + duree
+    const heure_fin = `${String(Math.floor(endMin / 60) % 24).padStart(2,'0')}:${String(endMin % 60).padStart(2,'0')}:00`
+
+    // Créneau déjà pris ?
+    const { data: clash } = await supabaseAdmin
+      .from('appointments').select('id, heure_debut, heure_fin')
+      .eq('date_rdv', data.date).not('statut', 'in', '(annulee,no_show)')
+
+    const startMin = hh * 60 + mm
+    const overlap = (clash || []).some(a => {
+      if (!a.heure_debut) return false
+      const [ah, am] = a.heure_debut.split(':').map(Number)
+      const [eh, em] = (a.heure_fin || a.heure_debut).split(':').map(Number)
+      return startMin < eh * 60 + em && endMin > ah * 60 + am
+    })
+    if (overlap) return NextResponse.json({ error: 'SLOT_TAKEN' }, { status: 400 })
+
     const hasCI = data.grossesse || data.diabete || data.allergies ||
       data.traitement_med || data.pb_peau || data.herpes || data.anticoagulants
+
+    const reference = 'ADR-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+
+    const { data: appt, error: rdvErr } = await supabaseAdmin
+      .from('appointments').insert({
+        client_id, service_id: data.service_id,
+        date_rdv: data.date,
+        heure_debut: data.heure_debut + ':00',
+        heure_fin,
+        statut: hasCI ? 'a_valider' : 'creee',
+        prix_final: svc.prix_sur_devis ? 0 : Number(svc.prix || 0),
+        payment_method: data.payment_method,
+        payment_status: 'en_attente',
+        reference,
+        source: 'site',
+        health_validated: hasCI ? null : true,
+      }).select('id, reference, heure_debut, heure_fin, prix_final').single()
+
+    if (rdvErr || !appt) {
+      console.error('[BOOKING] insert', rdvErr)
+      return NextResponse.json({ error: 'RDV_CREATE_FAILED', detail: rdvErr?.message }, { status: 400 })
+    }
+
+    const appointment_id: string = appt.id
+    const result = {
+      reference: appt.reference, heure_debut: appt.heure_debut,
+      heure_fin: appt.heure_fin, prix_final: appt.prix_final,
+    }
 
     // 3. Santé
     await supabaseAdmin.from('client_health_forms').insert({
@@ -92,11 +144,6 @@ export async function POST(req: NextRequest) {
       herpes: data.herpes, anticoagulants: data.anticoagulants,
       commentaires: data.commentaires_sante || null,
     })
-
-    if (hasCI) {
-      await supabaseAdmin.from('appointments')
-        .update({ statut: 'a_valider', health_validated: null }).eq('id', appointment_id)
-    }
 
     // 4. Consentement
     if (data.signature_data && data.consent_text) {

@@ -270,9 +270,16 @@ function useOpeningHours(lang: Lang) {
           if (!cur || cur.closed) { i++; continue }
           let j = i
           while (j+1 < 7 && h[String(j+1)] && !h[String(j+1)].closed
-                 && h[String(j+1)].open===cur.open && h[String(j+1)].close===cur.close) j++
+                 && h[String(j+1)].open===cur.open && h[String(j+1)].close===cur.close
+                 && !!h[String(j+1)].pause === !!cur.pause
+                 && h[String(j+1)].pauseStart===cur.pauseStart
+                 && h[String(j+1)].pauseEnd===cur.pauseEnd) j++
           const range = i===j ? names[i] : `${names[i]} – ${names[j]}`
-          parts.push(`${range} · ${cur.open.replace(':','h')} – ${cur.close.replace(':','h')}`)
+          const fmt = (t:string) => t.replace(':','h')
+          const pause = cur.pause && cur.pauseStart && cur.pauseEnd
+            ? `${fmt(cur.open)} – ${fmt(cur.pauseStart)} · ${fmt(cur.pauseEnd)} – ${fmt(cur.close)}`
+            : `${fmt(cur.open)} – ${fmt(cur.close)}`
+          parts.push(`${range} · ${pause}`)
           i = j+1
         }
         setTxt(parts.join('\n'))

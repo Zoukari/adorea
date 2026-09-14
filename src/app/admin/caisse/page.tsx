@@ -27,7 +27,7 @@ const waLink = (tel: string, msg: string) =>
 
 type Line = { service: Service; qty: number; customPrice?: number }
 type Appt = {
-  id: string; date_rdv: string; heure_debut: string; statut: string
+  id: string; date_rdv: string; heure_debut: string; statut: string; service_id: string
   prix_final: number; payment_status: string; reference: string
   client?: { nom: string; prenom: string; telephone: string } | null
   service?: { nom_fr: string; duree_minutes: number } | null
@@ -64,6 +64,8 @@ export default function CaissePage() {
   const [apptDate, setApptDate] = useState(iso(new Date()))
   const [apptTo, setApptTo] = useState(iso(new Date()))
   const [statutFilter, setStatutFilter] = useState('')
+  const [editAppt, setEditAppt] = useState<null|{id:string;service_id:string;date_rdv:string;heure_debut:string;prix_final:string}>(null)
+  const [savingAppt, setSavingAppt] = useState(false)
 
   // Clôture
   const [dayPayments, setDayPayments] = useState<{montant:number;methode:string}[]>([])
@@ -95,7 +97,7 @@ export default function CaissePage() {
 
   const loadAppts = useCallback(async () => {
     const { data } = await supabase.from('appointments')
-      .select('id,date_rdv,heure_debut,statut,prix_final,payment_status,reference,client:clients(nom,prenom,telephone),service:services(nom_fr,duree_minutes)')
+      .select('id,date_rdv,heure_debut,statut,service_id,prix_final,payment_status,reference,client:clients(nom,prenom,telephone),service:services(nom_fr,duree_minutes)')
       .gte('date_rdv', apptDate).lte('date_rdv', apptTo)
       .order('date_rdv').order('heure_debut')
     setAppts((data as unknown as Appt[])||[])
@@ -194,6 +196,23 @@ export default function CaissePage() {
   async function setStatut(id: string, statut: string) {
     await supabase.from('appointments').update({ statut }).eq('id', id)
     loadAppts()
+  }
+
+  async function saveAppt() {
+    if (!editAppt) return
+    setSavingAppt(true)
+    const svc = svcs.find(x=>x.id===editAppt.service_id)
+    const dur = svc?.duree_minutes || 60
+    const [h,m] = editAppt.heure_debut.split(':').map(Number)
+    const end = h*60+m+dur
+    await supabase.from('appointments').update({
+      service_id: editAppt.service_id,
+      date_rdv: editAppt.date_rdv,
+      heure_debut: editAppt.heure_debut + ':00',
+      heure_fin: `${String(Math.floor(end/60)%24).padStart(2,'0')}:${String(end%60).padStart(2,'0')}:00`,
+      prix_final: Number(editAppt.prix_final||0),
+    }).eq('id', editAppt.id)
+    setSavingAppt(false); setEditAppt(null); loadAppts()
   }
 
   async function markPaid(a: Appt) {
@@ -516,14 +535,17 @@ export default function CaissePage() {
                       </div>
                     )}
                   </div>
-                  <div style={{ minWidth:0 }}>
+                  <button style={{ minWidth:0, background:'transparent', border:'none', textAlign:'left',
+                    padding:0, cursor:'pointer', fontFamily:'inherit' }}
+                    onClick={()=>setEditAppt({ id:a.id, service_id:a.service_id, date_rdv:a.date_rdv,
+                      heure_debut:a.heure_debut?.slice(0,5)||'09:00', prix_final:String(a.prix_final||0) })}>
                     <div style={{ fontSize:13.5, fontWeight:500, color:T.black }}>
                       {a.client?.prenom} {a.client?.nom}
                     </div>
                     <div style={{ fontSize:11, color:T.muted, marginTop:2 }}>
-                      {a.service?.nom_fr} · {a.reference}
+                      {a.service?.nom_fr} · {a.reference} <span style={{color:T.gold}}>✎</span>
                     </div>
-                  </div>
+                  </button>
                   <div style={{ fontSize:13, fontWeight:600, color:T.black, whiteSpace:'nowrap' }}>
                     {FDJ(a.prix_final)}
                   </div>
@@ -612,6 +634,78 @@ export default function CaissePage() {
             </button>
           )}
         </>
+      )}
+
+      {/* Modal édition RDV */}
+      {editAppt && (
+        <div className="ovl" onClick={e=>e.target===e.currentTarget&&setEditAppt(null)}>
+          <div className="mdl">
+            <div className="mdl-h">
+              <h3>Modifier le rendez-vous</h3>
+              <button className="b-icon" onClick={()=>setEditAppt(null)}>×</button>
+            </div>
+
+            <label className="lbl">Prestation</label>
+            <select className="f" value={editAppt.service_id}
+              onChange={e=>{
+                const sv = svcs.find(x=>x.id===e.target.value)
+                setEditAppt(x=>x&&({...x, service_id:e.target.value,
+                  prix_final: sv && !sv.prix_sur_devis ? String(sv.prix) : x.prix_final }))
+              }}>
+              {cats.map(c=>(
+                <optgroup key={c.id} label={c.nom_fr}>
+                  {svcs.filter(sv=>sv.category_id===c.id).map(sv=>
+                    <option key={sv.id} value={sv.id}>{sv.nom_fr}</option>)}
+                </optgroup>
+              ))}
+            </select>
+
+            <div style={{ height:12 }}/>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div>
+                <label className="lbl">Date</label>
+                <input className="f" type="date" value={editAppt.date_rdv}
+                  onChange={e=>setEditAppt(x=>x&&({...x,date_rdv:e.target.value}))} style={{marginBottom:0}} />
+              </div>
+              <div>
+                <label className="lbl">Heure</label>
+                <input className="f" type="time" value={editAppt.heure_debut}
+                  onChange={e=>setEditAppt(x=>x&&({...x,heure_debut:e.target.value}))} style={{marginBottom:0}} />
+              </div>
+            </div>
+
+            <div style={{ height:12 }}/>
+            <label className="lbl">Prix (FDJ)</label>
+            <input className="f" type="number" value={editAppt.prix_final}
+              onChange={e=>setEditAppt(x=>x&&({...x,prix_final:e.target.value}))} />
+
+            {(() => {
+              const a = appts.find(x=>x.id===editAppt.id)
+              const sv = svcs.find(x=>x.id===editAppt.service_id)
+              if (!a?.client?.telephone) return null
+              const msg = `Bonjour ${a.client.prenom} ✨\n\nVotre rendez-vous chez ADORÉA a été mis à jour :\n\n📅 ${new Date(editAppt.date_rdv+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}\n🕐 ${editAppt.heure_debut}\n✦ ${sv?.nom_fr||''}\n\nÀ très vite !\nADORÉA · PMU & Makeup Pro`
+              return (
+                <a className="b-ghost" href={waLink(a.client.telephone, msg)}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ display:'flex', justifyContent:'center', marginTop:14,
+                    textDecoration:'none', color:'#25D366', borderColor:'#B8E6C8' }}>
+                  💬 Prévenir la cliente sur WhatsApp
+                </a>
+              )
+            })()}
+
+            <div style={{ display:'flex', gap:9, marginTop:18 }}>
+              <button className="b-danger" onClick={async()=>{
+                if (!confirm('Supprimer ce rendez-vous ?')) return
+                await supabase.from('appointments').delete().eq('id', editAppt.id)
+                setEditAppt(null); loadAppts()
+              }}>Supprimer</button>
+              <button className="b-primary" style={{flex:1}} onClick={saveAppt} disabled={savingAppt}>
+                {savingAppt?'Enregistrement...':'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal clôture */}
