@@ -51,7 +51,7 @@ export default function PlanningPage() {
   const [repeatDays, setRepeatDays] = useState<number[]>([])
   const [repeatWeeks, setRepeatWeeks] = useState(1)
   const [tab, setTab] = useState<'indispo'|'horaires'>('indispo')
-  const [hours, setHours] = useState<Record<string,{open:string;close:string;closed:boolean}>>({})
+  const [hours, setHours] = useState<Record<string,{open:string;close:string;closed:boolean;pause:boolean;pauseStart:string;pauseEnd:string}>>({})
   const [savingHours, setSavingHours] = useState(false)
 
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -93,9 +93,19 @@ export default function PlanningPage() {
     ;(async () => {
       const { data } = await supabase.from('site_settings').select('key,value').eq('key','horaires_ouverture').maybeSingle()
       const raw = (data as {value?:string})?.value
-      if (raw) { try { setHours(JSON.parse(raw)); return } catch {} }
-      const def: Record<string,{open:string;close:string;closed:boolean}> = {}
-      DOW_LABELS.forEach((_,i)=>{ def[String(i)] = { open:'09:00', close:'19:00', closed: i===6 } })
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw)
+          // Complète les anciennes données sans pause
+          DOW_LABELS.forEach((_,i)=>{
+            const k = String(i)
+            parsed[k] = { pause:false, pauseStart:'12:30', pauseEnd:'14:00', ...(parsed[k]||{}) }
+          })
+          setHours(parsed); return
+        } catch {}
+      }
+      const def: Record<string,{open:string;close:string;closed:boolean;pause:boolean;pauseStart:string;pauseEnd:string}> = {}
+      DOW_LABELS.forEach((_,i)=>{ def[String(i)] = { open:'09:00', close:'19:00', closed: i===6, pause:true, pauseStart:'12:30', pauseEnd:'14:00' } })
       setHours(def)
     })()
   }, [supabase])
@@ -187,25 +197,48 @@ export default function PlanningPage() {
           </div>
           <div className="rows" style={{ marginBottom:18 }}>
             {DOW_LABELS.map((d,i)=>{
-              const h = hours[String(i)] || { open:'09:00', close:'19:00', closed:false }
+              const h = hours[String(i)] || { open:'09:00', close:'19:00', closed:false, pause:false, pauseStart:'12:30', pauseEnd:'14:00' }
+              const upd = (patch: Partial<typeof h>) => setHours(x=>({...x,[String(i)]:{...h,...patch}}))
               return (
-                <div key={i} className="row" style={{ gridTemplateColumns:'90px auto 1fr' }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:T.black }}>{d}</div>
-                  <button className={`sw${!h.closed?' on':''}`}
-                    onClick={()=>setHours(x=>({...x,[String(i)]:{...h,closed:!h.closed}}))} />
-                  {h.closed ? (
-                    <span style={{ fontSize:12, color:'#C62828' }}>Fermé</span>
-                  ) : (
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <select className="f" value={h.open} style={{ width:100, marginBottom:0, padding:'7px 9px', fontSize:12 }}
-                        onChange={e=>setHours(x=>({...x,[String(i)]:{...h,open:e.target.value}}))}>
-                        {HOURS.map(v=><option key={v} value={v}>{v}</option>)}
-                      </select>
-                      <span style={{ color:T.muted, fontSize:12 }}>→</span>
-                      <select className="f" value={h.close} style={{ width:100, marginBottom:0, padding:'7px 9px', fontSize:12 }}
-                        onChange={e=>setHours(x=>({...x,[String(i)]:{...h,close:e.target.value}}))}>
-                        {HOURS.filter(v=>v>h.open).map(v=><option key={v} value={v}>{v}</option>)}
-                      </select>
+                <div key={i} className="row" style={{ gridTemplateColumns:'1fr', gap:10 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:T.black, minWidth:46 }}>{d}</div>
+                    <button className={`sw${!h.closed?' on':''}`} onClick={()=>upd({closed:!h.closed})} />
+                    {h.closed ? (
+                      <span style={{ fontSize:12, color:'#C62828' }}>Fermé</span>
+                    ) : (
+                      <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                        <select className="f" value={h.open} style={{ width:92, marginBottom:0, padding:'7px 9px', fontSize:12 }}
+                          onChange={e=>upd({open:e.target.value})}>
+                          {HOURS.map(v=><option key={v} value={v}>{v}</option>)}
+                        </select>
+                        <span style={{ color:T.muted, fontSize:12 }}>→</span>
+                        <select className="f" value={h.close} style={{ width:92, marginBottom:0, padding:'7px 9px', fontSize:12 }}
+                          onChange={e=>upd({close:e.target.value})}>
+                          {HOURS.filter(v=>v>h.open).map(v=><option key={v} value={v}>{v}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {!h.closed && (
+                    <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+                      paddingLeft:58, paddingTop:2 }}>
+                      <button className={`sw${h.pause?' on':''}`} onClick={()=>upd({pause:!h.pause})} />
+                      <span style={{ fontSize:12, color:T.muted }}>Pause</span>
+                      {h.pause && (
+                        <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                          <select className="f" value={h.pauseStart} style={{ width:92, marginBottom:0, padding:'6px 9px', fontSize:12 }}
+                            onChange={e=>upd({pauseStart:e.target.value})}>
+                            {HOURS.filter(v=>v>h.open&&v<h.close).map(v=><option key={v} value={v}>{v}</option>)}
+                          </select>
+                          <span style={{ color:T.muted, fontSize:12 }}>→</span>
+                          <select className="f" value={h.pauseEnd} style={{ width:92, marginBottom:0, padding:'6px 9px', fontSize:12 }}
+                            onChange={e=>upd({pauseEnd:e.target.value})}>
+                            {HOURS.filter(v=>v>h.pauseStart&&v<=h.close).map(v=><option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

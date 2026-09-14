@@ -32,13 +32,17 @@ export async function GET(req: NextRequest) {
   const dowIndex = jsDay === 0 ? 6 : jsDay - 1             // 0 = lundi
 
   let open = DEFAULT_OPEN, close = DEFAULT_CLOSE, closed = false
+  let pause = false, pauseStart = '', pauseEnd = ''
   const { data: setting } = await supabaseAdmin
     .from('site_settings').select('value').eq('key', 'horaires_ouverture').maybeSingle()
 
   if (setting?.value) {
     try {
       const h = JSON.parse(setting.value)[String(dowIndex)]
-      if (h) { open = h.open || open; close = h.close || close; closed = !!h.closed }
+      if (h) {
+        open = h.open || open; close = h.close || close; closed = !!h.closed
+        pause = !!h.pause; pauseStart = h.pauseStart || ''; pauseEnd = h.pauseEnd || ''
+      }
     } catch { /* valeurs par défaut */ }
   }
   if (closed) return NextResponse.json({ slots: [] })
@@ -55,6 +59,7 @@ export async function GET(req: NextRequest) {
     .eq('date_jour', date).eq('est_disponible', false)
 
   const busy: { start: number; end: number }[] = []
+  if (pause && pauseStart && pauseEnd) busy.push({ start: toMin(pauseStart), end: toMin(pauseEnd) })
   let fullDayClosed = false
   for (const b of blocks || []) {
     if (!b.heure_debut) { fullDayClosed = true; break }
@@ -73,11 +78,13 @@ export async function GET(req: NextRequest) {
     if (a.heure_debut) busy.push({ start: toMin(a.heure_debut), end: toMin(a.heure_fin || a.heure_debut) })
   }
 
-  // 6. Filtrage : le créneau + sa durée ne doit chevaucher aucune plage occupée
-  const now = new Date()
-  const isToday = date === new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString().split('T')[0]
-  const nowM = now.getHours() * 60 + now.getMinutes()
+  // 6. Filtrage — heure locale de Djibouti (UTC+3), le serveur tourne en UTC
+  const DJ_OFFSET = 3 * 60
+  const nowUtc = new Date()
+  const djNow = new Date(nowUtc.getTime() + DJ_OFFSET * 60000)
+  const djToday = djNow.toISOString().split('T')[0]
+  const isToday = date === djToday
+  const nowM = djNow.getUTCHours() * 60 + djNow.getUTCMinutes()
 
   const slots = raw
     .filter(m => !(isToday && m <= nowM + 60))

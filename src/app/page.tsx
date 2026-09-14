@@ -246,6 +246,43 @@ function useLiveServices() {
   return sections
 }
 
+function useOpeningHours(lang: Lang) {
+  const [txt, setTxt] = useState<string | null>(null)
+  useEffect(() => {
+    const supabase = createClient()
+    let alive = true
+    ;(async () => {
+      const { data } = await supabase.from('site_settings')
+        .select('value').eq('key','horaires_ouverture').maybeSingle()
+      if (!alive || !data?.value) return
+      try {
+        const h = JSON.parse(data.value as string)
+        const names = lang==='AR'
+          ? ['الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت','الأحد']
+          : lang==='EN'
+          ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+          : ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim']
+        // Regroupe les jours consécutifs identiques
+        const parts: string[] = []
+        let i = 0
+        while (i < 7) {
+          const cur = h[String(i)]
+          if (!cur || cur.closed) { i++; continue }
+          let j = i
+          while (j+1 < 7 && h[String(j+1)] && !h[String(j+1)].closed
+                 && h[String(j+1)].open===cur.open && h[String(j+1)].close===cur.close) j++
+          const range = i===j ? names[i] : `${names[i]} – ${names[j]}`
+          parts.push(`${range} · ${cur.open.replace(':','h')} – ${cur.close.replace(':','h')}`)
+          i = j+1
+        }
+        setTxt(parts.join('\n'))
+      } catch { /* garde le texte par défaut */ }
+    })()
+    return () => { alive = false }
+  }, [lang])
+  return txt
+}
+
 const FDJ_LAND = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FDJ'
 
 const CSS = `
@@ -564,6 +601,8 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .slot{padding:7px 14px;border-radius:100px;border:1.5px solid #DDD0BE;background:white;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:300;color:#0A0807;transition:all 0.15s}
 .slot:hover{border-color:#C9956A}
 .slot.on{background:#0A0807;border-color:#0A0807;color:#FAF6F0}
+.spin{width:15px;height:15px;border:2px solid rgba(201,169,106,0.25);border-top-color:#C9A96A;border-radius:50%;animation:spinTurn .7s linear infinite;display:inline-block;vertical-align:-2px}
+@keyframes spinTurn{to{transform:rotate(360deg)}}
 .cal-note{font-size:10px;color:#7A5C42;line-height:1.6;font-weight:300}
 .h-list{display:flex;flex-direction:column;gap:7px;margin-bottom:13px}
 .h-item{display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 11px;border-radius:11px;transition:background 0.15s}
@@ -875,15 +914,23 @@ function useActiveSection() {
   return active
 }
 
-function useReveal() {
+function useReveal(dep?: unknown) {
   useEffect(() => {
     const obs = new IntersectionObserver(
       entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('go'); obs.unobserve(e.target) } }),
       { threshold: 0, rootMargin: '0px 0px -12% 0px' }
     )
-    document.querySelectorAll('.rv,.rv-l,.rv-r,.clip-reveal,.zoom-reveal,.gold-line,.img-open,.line-mask,.clip-up').forEach(el => obs.observe(el))
-    return () => obs.disconnect()
-  }, [])
+    const scan = () => document
+      .querySelectorAll('.rv:not(.go),.rv-l:not(.go),.rv-r:not(.go),.clip-reveal:not(.go),.zoom-reveal:not(.go),.gold-line:not(.go),.img-open:not(.go),.line-mask:not(.go),.clip-up:not(.go)')
+      .forEach(el => obs.observe(el))
+
+    scan()
+    // Nouveau contenu injecté après le premier rendu
+    const t1 = setTimeout(scan, 120)
+    const t2 = setTimeout(scan, 600)
+
+    return () => { clearTimeout(t1); clearTimeout(t2); obs.disconnect() }
+  }, [dep])
 }
 
 // ── Booking Modal ─────────────────────────────────────────────
@@ -971,7 +1018,9 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
 
   function next() { if (validate(step)) setStep(s=>s+1) }
 
-  const [knownClient, setKnown] = useState<{prenom:string;nom:string;visites:number}|null>(null)
+  const [knownClient, setKnown] = useState<{prenom:string;nom:string;visites:number;dob?:string}|null>(null)
+  const [lookupState, setLookupState] = useState<'idle'|'searching'|'found'|'notfound'>('idle')
+  const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitErr, setSubmitErr] = useState('')
 
@@ -1037,7 +1086,9 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
     {key:'CASH',    desc:lang==='FR'?'Paiement en espèces réservé aux clientes ayant déjà effectué au moins une prestation chez ADORÉA.':lang==='EN'?'Cash only for returning clients with at least one previous appointment.':'الدفع نقداً للعميلات اللواتي لديهن موعد سابق.'},
   ]
 
-  const canNext = [!!selSvc, !!(selDate&&selSlot), true, true, !!payMethod][step]
+  const canNext = [!!selSvc, !!(selDate&&selSlot),
+    (lookupState==='found' || showForm) && !!form.prenom && !!form.nom && !!form.tel,
+    true, !!payMethod][step]
 
   return (
     <div className="modal-back" onClick={e => e.target===e.currentTarget && onClose()}>
@@ -1094,7 +1145,8 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
                 {lang==='FR'?'Créneaux disponibles':lang==='EN'?'Available slots':'الأوقات المتاحة'}
               </div>
               {slotsLoading ? (
-                <div style={{fontSize:12,color:C.taupe,padding:'10px 0'}}>
+                <div style={{fontSize:12,color:C.taupe,padding:'12px 0',display:'flex',alignItems:'center',gap:9}}>
+                  <span className="spin"/>
                   {lang==='FR'?'Recherche des créneaux...':lang==='EN'?'Loading slots...':'جاري البحث...'}
                 </div>
               ) : slots.length === 0 ? (
@@ -1116,38 +1168,102 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
         {/* STEP 2 */}
         {step===2 && (
           <>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-              <div><label className="f-lbl">{lang==='AR'?'الاسم':lang==='EN'?'First name':'Prénom *'}</label><input className={`f-in${errors.prenom?' err':''}`} value={form.prenom} onChange={e=>setForm(f=>({...f,prenom:e.target.value}))}/></div>
-              <div><label className="f-lbl">{lang==='AR'?'اللقب':lang==='EN'?'Last name':'Nom *'}</label><input className={`f-in${errors.nom?' err':''}`} value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))}/></div>
-            </div>
             <label className="f-lbl">{lang==='AR'?'الهاتف':lang==='EN'?'Phone *':'Téléphone *'}</label>
-            <div style={{marginBottom:13}}>
+            <div style={{marginBottom:6}}>
               <PhoneInput landing value={form.tel} className={`f-in${errors.tel?' err':''}`}
-                onChange={async v=>{
+                onChange={v=>{
                   setForm(f=>({...f,tel:v}))
-                  if (v.replace(/\D/g,'').length < 8) { setKnown(null); return }
+                  setLookupState('idle'); setKnown(null); setShowForm(false)
+                }} />
+            </div>
+
+            {lookupState === 'idle' && (
+              <button className="btn-or" style={{width:'100%',marginTop:6,marginBottom:14,
+                opacity: form.tel.replace(/\D/g,'').length>=8 ? 1 : .3}}
+                disabled={form.tel.replace(/\D/g,'').length<8}
+                onClick={async()=>{
+                  setLookupState('searching')
                   try {
-                    const r = await fetch(`/api/client?tel=${encodeURIComponent(v)}`)
+                    const r = await fetch(`/api/client?tel=${encodeURIComponent(form.tel)}`)
                     const d = await r.json()
                     if (d?.client) {
-                      setKnown({ prenom:d.client.prenom, nom:d.client.nom, visites:d.client.total_prestations||0 })
-                      setForm(f=>({...f, prenom:f.prenom||d.client.prenom, nom:f.nom||d.client.nom }))
-                    } else setKnown(null)
-                  } catch { setKnown(null) }
-                }} />
-              {knownClient && (
-                <div style={{marginTop:7,padding:'9px 12px',background:'#F1F8F2',border:'1px solid #A5D6A7',
-                  borderRadius:11,fontSize:11.5,color:'#2E7D32',fontFamily:'Montserrat,sans-serif',lineHeight:1.5}}>
-                  ✓ {lang==='FR'?'Nous vous connaissons':lang==='EN'?'Welcome back':'أهلاً بعودتك'}, {knownClient.prenom} —{' '}
-                  {knownClient.visites} {lang==='FR'?`prestation${knownClient.visites>1?'s':''} déjà réalisée${knownClient.visites>1?'s':''}`
-                    :lang==='EN'?`previous visit${knownClient.visites>1?'s':''}`:'زيارة سابقة'}
+                      setKnown({ prenom:d.client.prenom, nom:d.client.nom,
+                        visites:d.client.total_prestations||0, dob:d.client.date_naissance||'' })
+                      setForm(f=>({...f, prenom:d.client.prenom, nom:d.client.nom,
+                        dob: d.client.date_naissance || f.dob }))
+                      setLookupState('found')
+                    } else setLookupState('notfound')
+                  } catch { setLookupState('notfound') }
+                }}>
+                {lang==='FR'?'Rechercher mon dossier':lang==='EN'?'Find my record':'ابحثي عن ملفي'}
+              </button>
+            )}
+
+            {lookupState === 'searching' && (
+              <div style={{display:'flex',alignItems:'center',gap:9,padding:'14px 0',
+                fontSize:12,color:C.taupe,fontFamily:'Montserrat,sans-serif'}}>
+                <span className="spin"/>
+                {lang==='FR'?'Recherche en cours...':lang==='EN'?'Searching...':'جاري البحث...'}
+              </div>
+            )}
+
+            {lookupState === 'found' && knownClient && (
+              <div style={{marginBottom:14,padding:'14px 16px',background:'#F1F8F2',
+                border:'1.5px solid #A5D6A7',borderRadius:14,fontFamily:'Montserrat,sans-serif'}}>
+                <div style={{fontSize:13.5,fontWeight:600,color:'#2E7D32',marginBottom:4}}>
+                  {lang==='FR'?'Bon retour':lang==='EN'?'Welcome back':'أهلاً بعودتك'}, {knownClient.prenom} !
                 </div>
-              )}
-            </div>
-            <label className="f-lbl">{lang==='AR'?'تاريخ الميلاد':lang==='EN'?'Date of birth':'Date de naissance'}</label>
-            <input className="f-in" type="date" value={form.dob} onChange={e=>setForm(f=>({...f,dob:e.target.value}))}/>
-            <label className="f-lbl">{lang==='AR'?'ملاحظات':lang==='EN'?'Notes':'Notes / Informations complémentaires'}</label>
-            <textarea className="f-ta" placeholder={lang==='FR'?'Demandes spéciales, informations utiles...':lang==='EN'?'Special requests...':'معلومات إضافية...'} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+                <div style={{fontSize:11.5,color:'#5A8C5E',lineHeight:1.6}}>
+                  {knownClient.prenom} {knownClient.nom} · {knownClient.visites}{' '}
+                  {lang==='FR'?`prestation${knownClient.visites>1?'s':''} réalisée${knownClient.visites>1?'s':''}`
+                   :lang==='EN'?`visit${knownClient.visites>1?'s':''}`:'زيارة'}
+                </div>
+                <button onClick={()=>{ setLookupState('idle'); setKnown(null)
+                    setForm(f=>({...f,prenom:'',nom:'',dob:''})) }}
+                  style={{background:'transparent',border:'none',padding:0,marginTop:8,cursor:'pointer',
+                    fontSize:11,color:'#5A8C5E',textDecoration:'underline',fontFamily:'inherit'}}>
+                  {lang==='FR'?'Ce n\'est pas moi':lang==='EN'?'Not me':'لست أنا'}
+                </button>
+              </div>
+            )}
+
+            {lookupState === 'notfound' && !showForm && (
+              <div style={{marginBottom:14,padding:'14px 16px',background:'#FFF8E1',
+                border:'1.5px solid #E6C97A',borderRadius:14,fontFamily:'Montserrat,sans-serif'}}>
+                <div style={{fontSize:12.5,color:'#8A6030',lineHeight:1.6,marginBottom:11}}>
+                  {lang==='FR'?'Aucune cliente trouvée avec ce numéro.'
+                   :lang==='EN'?'No client found with this number.'
+                   :'لم يتم العثور على عميلة بهذا الرقم.'}
+                </div>
+                <button className="btn-or" style={{width:'100%'}} onClick={()=>setShowForm(true)}>
+                  {lang==='FR'?'Créer mon dossier':lang==='EN'?'Create my record':'إنشاء ملفي'}
+                </button>
+              </div>
+            )}
+
+            {(lookupState === 'found' || showForm) && (
+              <>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div>
+                    <label className="f-lbl">{lang==='AR'?'الاسم':lang==='EN'?'First name':'Prénom *'}</label>
+                    <input className={`f-in${errors.prenom?' err':''}`} value={form.prenom}
+                      onChange={e=>setForm(f=>({...f,prenom:e.target.value}))}/>
+                  </div>
+                  <div>
+                    <label className="f-lbl">{lang==='AR'?'اللقب':lang==='EN'?'Last name':'Nom *'}</label>
+                    <input className={`f-in${errors.nom?' err':''}`} value={form.nom}
+                      onChange={e=>setForm(f=>({...f,nom:e.target.value}))}/>
+                  </div>
+                </div>
+                <label className="f-lbl">{lang==='AR'?'تاريخ الميلاد':lang==='EN'?'Date of birth':'Date de naissance'}</label>
+                <input className="f-in" type="date" value={form.dob}
+                  onChange={e=>setForm(f=>({...f,dob:e.target.value}))}/>
+                <label className="f-lbl">{lang==='AR'?'ملاحظات':lang==='EN'?'Notes':'Notes / Informations complémentaires'}</label>
+                <textarea className="f-ta"
+                  placeholder={lang==='FR'?'Demandes spéciales, informations utiles...':lang==='EN'?'Special requests...':'معلومات إضافية...'}
+                  value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+              </>
+            )}
           </>
         )}
 
@@ -1273,10 +1389,11 @@ export default function Home() {
   const [booking, setBooking] = useState(false)
   const activeSection          = useActiveSection()
   const liveSections           = useLiveServices()
+  const liveHours              = useOpeningHours(lang)
   const SECTIONS: LiveSection[] = liveSections ?? (FALLBACK_SERVICES as unknown as LiveSection[])
   const t = T[lang]
   const dir = lang==='AR' ? 'rtl' : 'ltr'
-  useReveal()
+  useReveal(liveSections)
 
   const SOCIAL = [
     {name:'Instagram',icon:'📷',url:'https://www.instagram.com/adorea.dj?utm_source=qr&stkn=dzFvMGlsd2djeTgx'},
@@ -1512,7 +1629,7 @@ export default function Home() {
               {l:lang==='AR'?'العنوان':lang==='EN'?'Address':'Adresse',v:'PK13 – Bâtiment B1-2\nDjibouti Ville'},
               {l:lang==='AR'?'الهاتف':lang==='EN'?'Phone':'Téléphone',v:'+253 77 59 61 59'},
               {l:'Email',v:'adlina@adorea-dj.com'},
-              {l:lang==='AR'?'أوقات العمل':lang==='EN'?'Hours':'Horaires',v:t.hours},
+              {l:lang==='AR'?'أوقات العمل':lang==='EN'?'Hours':'Horaires',v: liveHours || t.hours},
             ].map((item,i)=>(
               <div key={i} className={`ci-info rv`} style={{transitionDelay:`${0.2+i*0.07}s`}}>
                 <div className="ci-lbl">{item.l}</div>

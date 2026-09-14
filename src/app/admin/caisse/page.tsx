@@ -62,6 +62,7 @@ export default function CaissePage() {
   // RDV
   const [appts, setAppts] = useState<Appt[]>([])
   const [apptDate, setApptDate] = useState(iso(new Date()))
+  const [apptTo, setApptTo] = useState(iso(new Date()))
   const [statutFilter, setStatutFilter] = useState('')
 
   // Clôture
@@ -95,9 +96,10 @@ export default function CaissePage() {
   const loadAppts = useCallback(async () => {
     const { data } = await supabase.from('appointments')
       .select('id,date_rdv,heure_debut,statut,prix_final,payment_status,reference,client:clients(nom,prenom,telephone),service:services(nom_fr,duree_minutes)')
-      .eq('date_rdv', apptDate).order('heure_debut')
+      .gte('date_rdv', apptDate).lte('date_rdv', apptTo)
+      .order('date_rdv').order('heure_debut')
     setAppts((data as unknown as Appt[])||[])
-  }, [supabase, apptDate])
+  }, [supabase, apptDate, apptTo])
 
   const loadCloture = useCallback(async () => {
     const { data: pays } = await supabase.from('payments')
@@ -474,9 +476,17 @@ export default function CaissePage() {
       {tab === 'rdv' && (
         <>
           <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-            <input className="f" type="date" value={apptDate} onChange={e=>setApptDate(e.target.value)}
-              style={{ maxWidth:180 }} />
-            <button className="b-ghost" onClick={()=>setApptDate(today)}>Aujourd&apos;hui</button>
+            <input className="f" type="date" value={apptDate}
+              onChange={e=>{ setApptDate(e.target.value); if (e.target.value>apptTo) setApptTo(e.target.value) }}
+              style={{ maxWidth:150, marginBottom:0 }} />
+            <span style={{ color:T.muted, fontSize:12 }}>→</span>
+            <input className="f" type="date" value={apptTo} min={apptDate}
+              onChange={e=>setApptTo(e.target.value)} style={{ maxWidth:150, marginBottom:0 }} />
+            <button className="b-ghost" onClick={()=>{ setApptDate(today); setApptTo(today) }}>Aujourd&apos;hui</button>
+            <button className="b-ghost" onClick={()=>{
+              const d=new Date(); const e=new Date(); e.setDate(e.getDate()+7)
+              setApptDate(iso(d)); setApptTo(iso(e))
+            }}>7 jours</button>
             <select className="f" value={statutFilter} onChange={e=>setStatutFilter(e.target.value)}
               style={{ maxWidth:150, marginBottom:0 }}>
               <option value="">Tous les statuts</option>
@@ -491,13 +501,20 @@ export default function CaissePage() {
           </div>
 
           {appts.length===0 ? (
-            <div className="empty">Aucun rendez-vous ce jour.</div>
+            <div className="empty">Aucun rendez-vous sur cette période.</div>
           ) : (
             <div className="rows">
               {appts.filter(a=>!statutFilter||a.statut===statutFilter).map(a=>(
                 <div key={a.id} className="row" style={{ gridTemplateColumns:'auto minmax(0,1fr) auto auto' }}>
-                  <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:19, color:T.gold, minWidth:52 }}>
-                    {a.heure_debut?.slice(0,5)}
+                  <div style={{ minWidth:56 }}>
+                    <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:19, color:T.gold, lineHeight:1.1 }}>
+                      {a.heure_debut?.slice(0,5)}
+                    </div>
+                    {apptTo !== apptDate && (
+                      <div style={{ fontSize:10, color:T.muted, marginTop:2 }}>
+                        {new Date(a.date_rdv+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}
+                      </div>
+                    )}
                   </div>
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:13.5, fontWeight:500, color:T.black }}>
