@@ -1076,8 +1076,21 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
       const url = `https://wa.me/${WA}?text=${encodeURIComponent(buildMsg() + ref)}`
       setDone({ reference: out.reference || '', waUrl: url })
       setSubmitting(false)
-      // Ouverture automatique de WhatsApp (navigation même onglet : jamais bloquée)
-      setTimeout(() => { window.location.href = url }, 700)
+
+      // Ouverture de WhatsApp — plusieurs méthodes en cascade car les
+      // navigateurs mobiles bloquent différemment
+      const go = () => {
+        // 1. Clic simulé sur un vrai lien : la méthode la plus fiable
+        const a = document.createElement('a')
+        a.href = url
+        a.rel = 'noopener'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        // 2. Filet de sécurité si le clic n'a rien déclenché
+        setTimeout(() => { window.location.href = url }, 400)
+      }
+      requestAnimationFrame(() => setTimeout(go, 250))
     } catch {
       setSubmitErr(lang==='FR' ? 'Connexion impossible. Réessayez.' : 'Connection failed.')
       setSubmitting(false)
