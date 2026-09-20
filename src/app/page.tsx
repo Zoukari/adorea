@@ -1944,7 +1944,21 @@ export default function Home() {
         <div className="tag rv" style={{color:C.orFonce}}><SecNum n="04"/>{t.ba_tag}</div>
         <RevealLines tag="h2" text={t.ba_h} className="ba-h" style={{transitionDelay:'0.1s'} as React.CSSProperties} baseDelay={0.1}/>
         <div className="ba-grid">
-          {BA.map((item,i)=>(
+          {(() => {
+            // Paires ba_before_N / ba_after_N venant de l'admin
+            const nums = Object.keys(siteImgs)
+              .filter(k => k.startsWith('ba_before_'))
+              .map(k => k.replace('ba_before_', ''))
+              .sort()
+            const livePairs = nums
+              .filter(n => siteImgs[`ba_before_${n}`] && siteImgs[`ba_after_${n}`])
+              .map(n => ({
+                label: siteImgs[`ba_before_${n}`].label?.replace(/\s*—.*$/, '') || 'ADORÉA',
+                before: siteImgs[`ba_before_${n}`].url,
+                after:  siteImgs[`ba_after_${n}`].url,
+              }))
+            return (livePairs.length ? livePairs : BA)
+          })().map((item,i)=>(
             <div key={i} className="rv" style={{transitionDelay:`${i*0.15}s`}}>
               <div className="ba-lbl">{item.label}</div>
               <BASlider before={item.before} after={item.after}/>

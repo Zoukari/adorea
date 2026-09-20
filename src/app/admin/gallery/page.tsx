@@ -91,6 +91,31 @@ export default function GalleryPage() {
     load()
   }
 
+  async function addBaPair() {
+    const nums = images
+      .filter(i => i.slot.startsWith('ba_before_'))
+      .map(i => Number(i.slot.replace('ba_before_', '')) || 0)
+    const n = (nums.length ? Math.max(...nums) : 0) + 1
+    const maxOrdre = Math.max(0, ...images.map(i => i.ordre))
+    await supabase.from('site_images').insert([
+      { slot:`ba_before_${n}`, url:'/images/ba-before-1.webp',
+        label:`Comparatif ${n} — avant`, tag:'AVANT', position:'center',
+        ordre: maxOrdre + 1, actif: true },
+      { slot:`ba_after_${n}`,  url:'/images/ba-after-1.webp',
+        label:`Comparatif ${n} — après`, tag:'APRÈS', position:'center',
+        ordre: maxOrdre + 2, actif: true },
+    ])
+    load()
+  }
+
+  async function removeBaPair(img: SiteImage) {
+    const n = img.slot.replace(/^ba_(before|after)_/, '')
+    if (!confirm(`Retirer le comparatif ${n} du site ?`)) return
+    await supabase.from('site_images').delete()
+      .in('slot', [`ba_before_${n}`, `ba_after_${n}`])
+    load()
+  }
+
   async function removeSlot(img: SiteImage) {
     if (!confirm(`Retirer « ${img.label || img.slot} » du site ?`)) return
     await supabase.from('site_images').delete().eq('id', img.id)
@@ -135,7 +160,19 @@ export default function GalleryPage() {
                 {z.key === 'gal' && (
                   <button className="b-ghost" onClick={()=>addSlot('gal_')}>+ Ajouter une photo</button>
                 )}
+                {z.key === 'ba' && (
+                  <button className="b-ghost" onClick={addBaPair}>+ Ajouter un comparatif</button>
+                )}
               </div>
+
+              {list.length === 0 && (
+                <div style={{ padding:'22px 18px', background:'#fff', border:'1.5px dashed #E5DACE',
+                  borderRadius:16, fontSize:12.5, color:T.muted, textAlign:'center', lineHeight:1.7 }}>
+                  {z.key === 'ba'
+                    ? 'Aucun comparatif. Cliquez sur « Ajouter un comparatif » pour créer une paire avant/après.'
+                    : 'Aucune image dans cette zone.'}
+                </div>
+              )}
 
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12 }}>
                 {list.map(img => (
@@ -167,6 +204,11 @@ export default function GalleryPage() {
                           <button className="b-icon" style={{ width:24, height:24, fontSize:13,
                             borderRadius:7, color:'#D14343' }}
                             onClick={()=>removeSlot(img)}>×</button>
+                        )}
+                        {z.key === 'ba' && img.slot.startsWith('ba_before_') && (
+                          <button className="b-icon" style={{ width:24, height:24, fontSize:13,
+                            borderRadius:7, color:'#D14343' }}
+                            onClick={()=>removeBaPair(img)}>×</button>
                         )}
                       </div>
                     </div>
