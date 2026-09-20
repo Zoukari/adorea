@@ -17,7 +17,7 @@ const NAV = [
   { href:'/admin/employees',    icon:'👥', label:'Équipe' },
   { href:'/admin/loyalty',      icon:'⭐', label:'Fidélité & Promos' },
   { href:'/admin/accounting',   icon:'📊', label:'Comptabilité' },
-  { href:'/admin/gallery',      icon:'🖼', label:'Galerie' },
+  { href:'/admin/gallery',      icon:'🖼', label:'Images du site' },
   { href:'/admin/settings',     icon:'⚙️', label:'Paramètres' },
 ]
 

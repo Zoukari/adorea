@@ -342,6 +342,30 @@ function remiseDe(p: LivePromo, prix: number): number {
     : Math.min(Number(p.remise_fixe || 0), prix)
 }
 
+
+// ── Images du site pilotées depuis l'admin ────────────────
+type SiteImg = { slot:string; url:string; label:string|null; tag:string|null; position:string|null; actif:boolean; ordre:number }
+
+function useSiteImages() {
+  const [imgs, setImgs] = useState<Record<string, SiteImg>>({})
+  const [gallery, setGallery] = useState<SiteImg[]>([])
+  useEffect(() => {
+    const supabase = createClient()
+    let alive = true
+    ;(async () => {
+      const { data } = await supabase.from('site_images').select('*').eq('actif', true).order('ordre')
+      if (!alive || !data) return
+      const list = data as SiteImg[]
+      const map: Record<string, SiteImg> = {}
+      list.forEach(i => { map[i.slot] = i })
+      setImgs(map)
+      setGallery(list.filter(i => i.slot.startsWith('gal_')))
+    })()
+    return () => { alive = false }
+  }, [])
+  return { imgs, gallery }
+}
+
 const FDJ_LAND = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FDJ'
 
 const CSS = `
@@ -1175,7 +1199,8 @@ function BookingModal({ lang, onClose, sections, promos }: { lang: Lang; onClose
       body: JSON.stringify({
         code: promoCode.trim(),
         service_id: selSvc?.id,
-        montant: selSvc?.devis ? 0 : selSvc?.prix || 0,
+        // Base de calcul : prix après la promotion automatique
+        montant: selSvc?.devis ? 0 : Math.max(0, (selSvc?.prix || 0) - autoRemise),
       }),
     })
     const d = await res.json()
@@ -1607,7 +1632,12 @@ function BookingModal({ lang, onClose, sections, promos }: { lang: Lang; onClose
                   border:'1px solid #A5D6A7', borderRadius:11, fontSize:11.5, color:'#2E7D32',
                   fontFamily:'Montserrat,sans-serif', lineHeight:1.55 }}>
                   ✓ {promoResult.message}
-                  {' — '}{lang==='FR'?'Total':'Total'} : <strong>{new Intl.NumberFormat('fr-FR').format(Math.max(0,(selSvc?.prix||0)-(promoResult?.remise||0)))} FDJ</strong>
+                  {autoRemise > 0 && (
+                    <span style={{ opacity:.75 }}>
+                      {' '}{lang==='FR'?'en plus de la promotion':lang==='EN'?'on top of the promotion':'بالإضافة إلى العرض'}
+                    </span>
+                  )}
+                  {' — '}{lang==='FR'?'Total':'Total'} : <strong>{FDJ_LAND(Math.max(0,(selSvc?.prix||0)-autoRemise-(promoResult?.remise||0)))}</strong>
                 </div>
               )}
               {promoErr && (
@@ -1690,6 +1720,7 @@ export default function Home() {
   const liveSections           = useLiveServices()
   const livePromos             = usePromos()
   const liveHours              = useOpeningHours(lang)
+  const { imgs: siteImgs, gallery: liveGallery } = useSiteImages()
   const SECTIONS: LiveSection[] = liveSections ?? (FALLBACK_SERVICES as unknown as LiveSection[])
   const t = T[lang]
   const dir = lang==='AR' ? 'rtl' : 'ltr'
@@ -1750,7 +1781,7 @@ export default function Home() {
 
       {/* ══ HERO ══ */}
       <section className="hero" id="hero">
-        <div className="hero-bg"><img src="/images/hero-main.webp" alt="ADORÉA"/></div>
+        <div className="hero-bg"><img src={siteImgs.hero?.url || "/images/hero-main.webp"} alt="ADORÉA" style={siteImgs.hero?.position?{objectPosition:siteImgs.hero.position}:undefined}/></div>
         <div className="hero-grad"/>
         <div className="hero-content">
           <div className="hero-logo-wrap">
@@ -1804,7 +1835,7 @@ export default function Home() {
         </div>
         <div className="brand-inner">
           <div className="brand-img-col clip-up clip-up-cream glass-shimmer">
-            <img src="/images/brand-beige.webp" alt="ADORÉA Brand" style={{objectPosition:'center 30%'}}/>
+            <img src={siteImgs.brand?.url || "/images/brand-beige.webp"} alt="ADORÉA Brand" style={{objectPosition: siteImgs.brand?.position || 'center 30%'}}/>
           </div>
           <div className="brand-txt-col">
             <div className="tag rv na" style={{color:C.orFonce}}><SecNum n="01"/>{t.brand_tag}</div>
@@ -1841,7 +1872,14 @@ export default function Home() {
         {SECTIONS.map((s,idx)=>(
           <div key={s.id} id={s.id}>
             <div className={`svc-row${idx%2===1?' rev':''}`} style={{background:s.bg}}>
-              <div className={`svc-img-col clip-up ${idx%2===1?'clip-up-brun':'clip-up-dark'} glass-shimmer`}><img src={s.img} alt={s.label[lang]} style={{objectPosition: s.pos || "center top"}}/></div>
+              <div className={`svc-img-col clip-up ${idx%2===1?'clip-up-brun':'clip-up-dark'} glass-shimmer`}><img src={(() => {
+                const slug = (s.id||'').toLowerCase()
+                const key = slug.includes('sourcil')||slug.includes('brow') ? 'svc_sourcils'
+                  : slug.includes('levre')||slug.includes('lip') ? 'svc_levres'
+                  : slug.includes('makeup')||slug.includes('maquill') ? 'svc_makeup'
+                  : slug.includes('nail')||slug.includes('ongle') ? 'svc_nails' : ''
+                return siteImgs[key]?.url || s.img
+              })()} alt={s.label[lang]} style={{objectPosition: s.pos || "center top"}}/></div>
               <div className="svc-txt-col" style={{background:s.bg}}>
                 <div className="svc-num rv">{String(idx+1).padStart(2,'0')}</div>
                 <div className="svc-cat-lbl rv" style={{transitionDelay:'0.05s'}}>{s.cat}</div>
@@ -1892,7 +1930,7 @@ export default function Home() {
         <div className="gallery-header">
           <div className="tag rv" style={{justifyContent:'center'}}><SecNum n="03"/>{t.gallery_tag}</div>
         </div>
-        <GalleryScroll items={GALLERY_ITEMS} />
+        <GalleryScroll items={liveGallery.length ? liveGallery.map(g=>({img:g.url,label:g.tag||'',name:g.label||''})) : GALLERY_ITEMS} />
       </section>
 
       <div className="fade-sep"/>

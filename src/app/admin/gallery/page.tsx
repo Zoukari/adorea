@@ -1,162 +1,250 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { PmuPhoto, PmuRecord } from '@/types'
 
-const T = { nude:'#D7B6B1', beige:'#EADCC8', gold:'#C9A96A', black:'#1A1A1A', offwhite:'#F9F6F2', muted:'#8A7A74' }
+const T = { gold:'#C9A96A', black:'#1A1A1A', muted:'#8A7A74' }
 
-interface PhotoWithRecord extends PmuPhoto {
-  record?: PmuRecord & { client?: { nom: string; prenom: string }; service?: { nom_fr: string } }
+type SiteImage = {
+  id: string; slot: string; url: string
+  label: string|null; tag: string|null
+  position: string|null; ordre: number; actif: boolean
 }
+
+// Regroupement par zone du site
+const ZONES: { key:string; titre:string; desc:string; prefixes:string[] }[] = [
+  { key:'hero',   titre:'Accueil',        desc:'Grande image en haut du site',            prefixes:['hero'] },
+  { key:'brand',  titre:'Notre maison',   desc:'Image de la section présentation',        prefixes:['brand'] },
+  { key:'svc',    titre:'Prestations',    desc:'Une image par catégorie de prestations',  prefixes:['svc_'] },
+  { key:'gal',    titre:'Notre univers',  desc:'Carrousel défilant du site',              prefixes:['gal_'] },
+  { key:'ba',     titre:'Avant / Après',  desc:'Comparatifs glissants',                   prefixes:['ba_'] },
+]
+
+const POSITIONS = [
+  { v:'top',        l:'Haut' },
+  { v:'center 20%', l:'Haut-centre' },
+  { v:'center',     l:'Centre' },
+  { v:'center 60%', l:'Bas-centre' },
+  { v:'bottom',     l:'Bas' },
+]
 
 export default function GalleryPage() {
   const supabase = createClient()
-  const [photos, setPhotos]     = useState<PhotoWithRecord[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [filter, setFilter]     = useState<'all'|'avant'|'apres'|'public'>('all')
+  const [images, setImages] = useState<SiteImage[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<SiteImage|null>(null)
   const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('pmu_photos')
-      .select('*, record:pmu_records(*, client:clients(nom,prenom), service:services(nom_fr))')
-      .order('created_at', { ascending: false })
-      .limit(80)
-    setPhotos((data as PhotoWithRecord[]) || [])
+    const { data } = await supabase.from('site_images').select('*').order('ordre')
+    setImages((data as SiteImage[]) || [])
     setLoading(false)
-  }
+  }, [supabase])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
-  async function togglePublic(id: string, current: boolean) {
-    await supabase.from('pmu_photos').update({ public_gallery: !current }).eq('id', id)
-    setPhotos(ps => ps.map(p => p.id === id ? { ...p, public_gallery: !current } : p))
-  }
-
-  async function deletePhoto(id: string, url: string) {
-    if (!confirm('Supprimer cette photo ?')) return
-    // Supprimer du storage
-    const path = url.split('/pmu-photos/')[1]
-    if (path) await supabase.storage.from('pmu-photos').remove([path])
-    await supabase.from('pmu_photos').delete().eq('id', id)
-    load()
-  }
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>, recordId: string, type: 'avant'|'apres') {
-    const file = e.target.files?.[0]
-    if (!file) return
+  async function uploadFile(file: File) {
+    if (!editing) return
     setUploading(true)
-    const path = `${recordId}/${type}-${Date.now()}.${file.name.split('.').pop()}`
-    const { data: upData, error } = await supabase.storage.from('pmu-photos').upload(path, file, { upsert: true })
-    if (!error && upData) {
-      const { data: urlData } = supabase.storage.from('pmu-photos').getPublicUrl(path)
-      await supabase.from('pmu_photos').insert({ record_id: recordId, url: urlData.publicUrl, type, public_gallery: false })
-      load()
-    }
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `site/${editing.slot}-${Date.now()}.${ext}`
+
+    const { error } = await supabase.storage
+      .from('pmu-photos').upload(path, file, { upsert: true, cacheControl: '3600' })
+
+    if (error) { alert('Envoi impossible : ' + error.message); setUploading(false); return }
+
+    const { data: pub } = supabase.storage.from('pmu-photos').getPublicUrl(path)
+    setEditing(e => e && ({ ...e, url: pub.publicUrl }))
     setUploading(false)
   }
 
-  const filtered = photos.filter(p => {
-    if (filter === 'avant')  return p.type === 'avant'
-    if (filter === 'apres')  return p.type === 'apres'
-    if (filter === 'public') return p.public_gallery
-    return true
-  })
+  async function save() {
+    if (!editing) return
+    setSaving(true)
+    await supabase.from('site_images').update({
+      url: editing.url,
+      label: editing.label,
+      tag: editing.tag,
+      position: editing.position,
+      actif: editing.actif,
+      updated_at: new Date().toISOString(),
+    }).eq('id', editing.id)
+    setSaving(false); setEditing(null); load()
+    setToast('Image mise à jour — rechargez le site pour voir le changement')
+    setTimeout(()=>setToast(''), 4000)
+  }
 
-  const publicCount  = photos.filter(p => p.public_gallery).length
-  const avantCount   = photos.filter(p => p.type === 'avant').length
-  const apresCount   = photos.filter(p => p.type === 'apres').length
+  async function addSlot(prefix: string) {
+    const existing = images.filter(i => i.slot.startsWith(prefix))
+    const n = existing.length + 1
+    const slot = `${prefix}${n}`
+    const maxOrdre = Math.max(0, ...images.map(i => i.ordre))
+    await supabase.from('site_images').insert({
+      slot, url: '/images/hero-main.webp',
+      label: 'Nouvelle image', tag: '', position: 'center',
+      ordre: maxOrdre + 1, actif: true,
+    })
+    load()
+  }
+
+  async function removeSlot(img: SiteImage) {
+    if (!confirm(`Retirer « ${img.label || img.slot} » du site ?`)) return
+    await supabase.from('site_images').delete().eq('id', img.id)
+    load()
+  }
+
+  const zoneImages = (z: typeof ZONES[0]) =>
+    images.filter(i => z.prefixes.some(p => i.slot.startsWith(p)))
 
   return (
-    <div style={{ padding:32, maxWidth:1100 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:28 }}>
+    <div className="pg" style={{ padding:'26px 26px 60px' }}>
+      <div className="ph">
         <div>
-          <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:32, fontWeight:300 }}>Galerie</h1>
-          <div style={{ fontSize:12, color:T.muted, marginTop:4 }}>
-            {photos.length} photos · {publicCount} publiques · {avantCount} avant · {apresCount} après
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:4, background:T.beige, borderRadius:6, padding:4 }}>
-          {[
-            { key:'all',    label:'Toutes' },
-            { key:'avant',  label:'Avant' },
-            { key:'apres',  label:'Après' },
-            { key:'public', label:'Publiques' },
-          ].map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key as typeof filter)} style={{
-              padding:'7px 12px', borderRadius:4, border:'none', cursor:'pointer', fontSize:11, fontWeight:500,
-              background: filter === f.key ? T.black : 'transparent',
-              color: filter === f.key ? T.offwhite : T.muted,
-              fontFamily:'Manrope,sans-serif',
-            }}>{f.label}</button>
-          ))}
+          <h1>Images du site</h1>
+          <div className="sub">Modifiez les photos affichées sur le site vitrine</div>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ color:T.muted, fontSize:13 }}>Chargement...</div>
-      ) : filtered.length === 0 ? (
-        <div style={{ padding:60, textAlign:'center', color:T.muted, fontSize:13, border:`1px dashed ${T.beige}`, borderRadius:8 }}>
-          Aucune photo dans cette catégorie.<br/>
-          <span style={{ fontSize:11 }}>Les photos sont ajoutées depuis la fiche cliente → onglet PMU.</span>
+        <div className="g3">
+          {Array.from({length:6}).map((_,i)=><div key={i} className="skel" style={{height:170}}/>)}
+        </div>
+      ) : images.length === 0 ? (
+        <div className="empty" style={{ lineHeight:1.8 }}>
+          Aucun emplacement configuré.<br/>
+          Lancez la migration <code>10_site_images.sql</code> dans Supabase.
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px,1fr))', gap:12 }}>
-          {filtered.map(p => (
-            <div key={p.id} style={{ background:'white', border:`1px solid ${T.beige}`, borderRadius:8, overflow:'hidden' }}>
-              {/* Image */}
-              <div style={{ position:'relative', aspectRatio:'1', overflow:'hidden', background:T.beige }}>
-                <img src={p.url} alt={p.type} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
-                <div style={{
-                  position:'absolute', top:8, left:8, padding:'3px 8px', borderRadius:12, fontSize:10, fontWeight:600,
-                  background: p.type === 'avant' ? 'rgba(26,26,26,0.75)' : 'rgba(201,169,106,0.9)',
-                  color:'white', textTransform:'uppercase', letterSpacing:'0.1em',
-                }}>{p.type}</div>
-                {p.public_gallery && (
-                  <div style={{
-                    position:'absolute', top:8, right:8, width:22, height:22, borderRadius:11,
-                    background:T.gold, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'white',
-                  }}>👁</div>
+        ZONES.map(z => {
+          const list = zoneImages(z)
+          if (!list.length && !['gal','ba'].includes(z.key)) return null
+          return (
+            <div key={z.key} style={{ marginBottom:32 }}>
+              <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between',
+                gap:12, marginBottom:12, flexWrap:'wrap' }}>
+                <div>
+                  <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:21, color:T.black }}>
+                    {z.titre}
+                  </div>
+                  <div style={{ fontSize:11.5, color:T.muted, marginTop:2 }}>{z.desc}</div>
+                </div>
+                {z.key === 'gal' && (
+                  <button className="b-ghost" onClick={()=>addSlot('gal_')}>+ Ajouter une photo</button>
                 )}
               </div>
 
-              {/* Infos */}
-              <div style={{ padding:'10px 12px' }}>
-                <div style={{ fontSize:12, fontWeight:500, color:T.black, marginBottom:2 }}>
-                  {p.record?.client?.prenom} {p.record?.client?.nom}
-                </div>
-                <div style={{ fontSize:11, color:T.muted, marginBottom:10 }}>
-                  {p.record?.service?.nom_fr}
-                </div>
-                <div style={{ display:'flex', justifyContent:'space-between', gap:6 }}>
-                  <button onClick={() => togglePublic(p.id, p.public_gallery)} style={{
-                    flex:1, padding:'6px', borderRadius:4, border:`1px solid ${p.public_gallery ? T.gold : T.beige}`,
-                    background: p.public_gallery ? '#FBF7EE' : 'transparent',
-                    cursor:'pointer', fontSize:10, fontWeight:500,
-                    color: p.public_gallery ? T.gold : T.muted,
-                    fontFamily:'Manrope,sans-serif',
-                  }}>{p.public_gallery ? 'Publique ✓' : 'Privée'}</button>
-                  <button onClick={() => deletePhoto(p.id, p.url)} style={{
-                    padding:'6px 10px', borderRadius:4, border:`1px solid #F4433620`,
-                    background:'transparent', cursor:'pointer', fontSize:10, color:'#F44336',
-                    fontFamily:'Manrope,sans-serif',
-                  }}>×</button>
-                </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12 }}>
+                {list.map(img => (
+                  <div key={img.id} style={{
+                    background:'#fff', border:'1.5px solid #EFE6DC', borderRadius:16,
+                    overflow:'hidden', opacity: img.actif ? 1 : .45,
+                  }}>
+                    <button onClick={()=>setEditing({...img})} style={{
+                      display:'block', width:'100%', border:'none', padding:0, cursor:'pointer',
+                      background:'#F2EDE8', position:'relative',
+                    }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.url} alt={img.label || img.slot}
+                        style={{ width:'100%', aspectRatio:'3/4', objectFit:'cover',
+                          objectPosition: img.position || 'center', display:'block' }}/>
+                      <span style={{ position:'absolute', top:8, right:8, background:'rgba(10,8,7,.72)',
+                        color:'#fff', borderRadius:8, padding:'4px 8px', fontSize:10,
+                        fontFamily:'Manrope,sans-serif' }}>✎</span>
+                    </button>
+                    <div style={{ padding:'10px 12px' }}>
+                      <div style={{ fontSize:12.5, fontWeight:500, color:T.black,
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {img.label || img.slot}
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                        marginTop:6 }}>
+                        <span style={{ fontSize:10, color:T.muted }}>{img.slot}</span>
+                        {z.key === 'gal' && (
+                          <button className="b-icon" style={{ width:24, height:24, fontSize:13,
+                            borderRadius:7, color:'#D14343' }}
+                            onClick={()=>removeSlot(img)}>×</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )
+        })
+      )}
+
+      {/* Modale d'édition */}
+      {editing && (
+        <div className="ovl" onClick={e=>e.target===e.currentTarget&&setEditing(null)}>
+          <div className="mdl" style={{ maxHeight:'92svh', overflowY:'auto' }}>
+            <div className="mdl-h">
+              <h3>{editing.label || editing.slot}</h3>
+              <button className="b-icon" onClick={()=>setEditing(null)}>×</button>
+            </div>
+
+            {/* Aperçu */}
+            <div style={{ borderRadius:14, overflow:'hidden', background:'#F2EDE8', marginBottom:14 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={editing.url} alt=""
+                style={{ width:'100%', aspectRatio:'4/3', objectFit:'cover',
+                  objectPosition: editing.position || 'center', display:'block' }}/>
+            </div>
+
+            <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }}
+              onChange={e=>{ const f = e.target.files?.[0]; if (f) uploadFile(f) }}/>
+
+            <button className="b-gold" style={{ width:'100%', marginBottom:14 }}
+              onClick={()=>fileRef.current?.click()} disabled={uploading}>
+              {uploading ? 'Envoi en cours...' : '📷 Remplacer la photo'}
+            </button>
+
+            <label className="lbl">Cadrage</label>
+            <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginBottom:14 }}>
+              {POSITIONS.map(p=>(
+                <button key={p.v} className={`chip${editing.position===p.v?' on':''}`}
+                  style={{ padding:'7px 13px', fontSize:11.5 }}
+                  onClick={()=>setEditing(e=>e&&({...e,position:p.v}))}>
+                  {p.l}
+                </button>
+              ))}
+            </div>
+
+            <label className="lbl">Légende</label>
+            <input className="f" value={editing.label || ''}
+              onChange={e=>setEditing(x=>x&&({...x,label:e.target.value}))}
+              placeholder="Des lèvres sublimées" />
+
+            <label className="lbl" style={{ marginTop:10 }}>Sur-titre</label>
+            <input className="f" value={editing.tag || ''}
+              onChange={e=>setEditing(x=>x&&({...x,tag:e.target.value}))}
+              placeholder="LÈVRES PMU" />
+
+            <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', marginTop:16 }}>
+              <button className={`sw${editing.actif?' on':''}`} type="button"
+                onClick={()=>setEditing(x=>x&&({...x,actif:!x.actif}))} />
+              <span style={{ fontSize:13, color:T.black }}>Visible sur le site</span>
+            </label>
+
+            <div style={{ display:'flex', gap:9, marginTop:20 }}>
+              <button className="b-ghost" onClick={()=>setEditing(null)}>Annuler</button>
+              <button className="b-primary" style={{ flex:1 }} onClick={save} disabled={saving||uploading}>
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Upload fictif — la vraie galerie se remplit depuis les fiches PMU */}
-      <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }}
-        onChange={e => handleUpload(e, 'demo-record-id', 'apres')} />
-
-      {uploading && (
-        <div style={{ position:'fixed', bottom:24, right:24, background:T.black, color:T.offwhite, padding:'12px 20px', borderRadius:6, fontSize:13, fontWeight:500 }}>
-          Upload en cours...
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:600,
+          background:T.black, color:'#F9F6F2', padding:'13px 22px', borderRadius:100, fontSize:12.5,
+          boxShadow:'0 8px 28px rgba(0,0,0,.3)', maxWidth:'90vw', textAlign:'center' }}>
+          {toast}
         </div>
       )}
     </div>
