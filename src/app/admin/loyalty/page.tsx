@@ -25,13 +25,27 @@ const EMPTY_RULE: Partial<LoyaltyRule> = {
 }
 
 interface PromoForm {
-  code: string; remise_pct: string; remise_fixe: string; montant_min: string
-  service_id: string; date_debut: string; date_fin: string
-  nb_utilisations_max: string; nb_par_cliente_max: string
+  code: string
+  mode: 'pct' | 'fixe' | 'prix'   // prix = nouveau prix direct
+  remise_pct: string
+  remise_fixe: string
+  nouveau_prix: string              // prix final voulu
+  montant_min: string
+  service_id: string
+  date_debut: string
+  date_fin: string
+  date_fin_heure: string            // HH:MM
+  auto_repeat: boolean
+  duree_heures: string
+  afficher_site: boolean
+  nb_utilisations_max: string
+  nb_par_cliente_max: string
 }
 const EMPTY_PROMO: PromoForm = {
-  code:'', remise_pct:'', remise_fixe:'', montant_min:'',
-  service_id:'', date_debut:'', date_fin:'', nb_utilisations_max:'', nb_par_cliente_max:'',
+  code:'', mode:'pct', remise_pct:'', remise_fixe:'', nouveau_prix:'', montant_min:'',
+  service_id:'', date_debut:'', date_fin:'', date_fin_heure:'23:59',
+  auto_repeat:false, duree_heures:'24', afficher_site:true,
+  nb_utilisations_max:'', nb_par_cliente_max:'',
 }
 
 type Touchup = {
@@ -99,14 +113,40 @@ export default function LoyaltyPage() {
   async function savePromo() {
     if (!promoForm.code) return
     setSaving(true)
+
+    // Calcul des remises selon le mode
+    let remise_pct: number|null = null
+    let remise_fixe: number|null = null
+
+    if (promoForm.mode === 'pct' && promoForm.remise_pct) {
+      remise_pct = Number(promoForm.remise_pct)
+    } else if (promoForm.mode === 'fixe' && promoForm.remise_fixe) {
+      remise_fixe = Number(promoForm.remise_fixe)
+    } else if (promoForm.mode === 'prix' && promoForm.nouveau_prix && promoForm.service_id) {
+      const svc = services.find(sv => sv.id === promoForm.service_id)
+      if (svc && !svc.prix_sur_devis) {
+        remise_fixe = Math.max(0, svc.prix - Number(promoForm.nouveau_prix))
+      }
+    }
+
+    // Date de fin avec heure
+    let date_fin_heure: string|null = null
+    if (promoForm.date_fin) {
+      const h = promoForm.date_fin_heure || '23:59'
+      date_fin_heure = new Date(`${promoForm.date_fin}T${h}:00`).toISOString()
+    }
+
     await supabase.from('promo_codes').insert({
       code: promoForm.code.toUpperCase(),
-      remise_pct:  promoForm.remise_pct  ? Number(promoForm.remise_pct)  : null,
-      remise_fixe: promoForm.remise_fixe ? Number(promoForm.remise_fixe) : null,
+      remise_pct, remise_fixe,
       montant_min: promoForm.montant_min ? Number(promoForm.montant_min) : null,
       service_id:  promoForm.service_id  || null,
       date_debut:  promoForm.date_debut  || null,
       date_fin:    promoForm.date_fin    || null,
+      date_fin_heure,
+      auto_repeat:  promoForm.auto_repeat,
+      duree_heures: promoForm.auto_repeat && promoForm.duree_heures ? Number(promoForm.duree_heures) : null,
+      afficher_site: promoForm.afficher_site,
       nb_utilisations_max: promoForm.nb_utilisations_max ? Number(promoForm.nb_utilisations_max) : null,
       nb_par_cliente_max:  promoForm.nb_par_cliente_max  ? Number(promoForm.nb_par_cliente_max)  : null,
       actif: true,
@@ -325,76 +365,187 @@ export default function LoyaltyPage() {
       {/* ══ MODAL CODE PROMO ══ */}
       {promoOpen && (
         <div className="ovl" onClick={e=>e.target===e.currentTarget&&setPromoOpen(false)}>
-          <div className="mdl">
+          <div className="mdl" style={{ maxHeight:'90svh', overflowY:'auto' }}>
             <div className="mdl-h">
               <h3>Nouveau code promo</h3>
               <button className="b-icon" onClick={()=>setPromoOpen(false)}>×</button>
             </div>
 
-            <label className="lbl">Code *</label>
-            <input className="f" value={promoForm.code}
+            {/* Code */}
+            <label className="lbl">Code promo *</label>
+            <input className="f" value={promoForm.code} autoFocus
               onChange={e=>setPromoForm(f=>({...f,code:e.target.value.toUpperCase()}))}
-              placeholder="BIENVENUE20" />
+              placeholder="ADOREA20" />
 
-            <div style={{ height:12 }}/>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              <div>
-                <label className="lbl">Remise %</label>
-                <input className="f" type="number" value={promoForm.remise_pct}
-                  onChange={e=>setPromoForm(f=>({...f,remise_pct:e.target.value}))} />
-              </div>
-              <div>
-                <label className="lbl">Remise FDJ</label>
-                <input className="f" type="number" value={promoForm.remise_fixe}
-                  onChange={e=>setPromoForm(f=>({...f,remise_fixe:e.target.value}))} />
-              </div>
-            </div>
-
-            <div style={{ height:12 }}/>
-            <label className="lbl">Montant minimum (FDJ)</label>
-            <input className="f" type="number" value={promoForm.montant_min}
-              onChange={e=>setPromoForm(f=>({...f,montant_min:e.target.value}))} />
-
-            <div style={{ height:12 }}/>
+            {/* Prestation ciblée */}
+            <div style={{ height:14 }}/>
             <label className="lbl">Prestation ciblée</label>
             <select className="f" value={promoForm.service_id}
-              onChange={e=>setPromoForm(f=>({...f,service_id:e.target.value}))}>
+              onChange={e=>setPromoForm(f=>({...f,service_id:e.target.value,nouveau_prix:''}))}>
               <option value="">Toutes les prestations</option>
-              {services.map(s=><option key={s.id} value={s.id}>{s.nom_fr}</option>)}
+              {services.map(sv=><option key={sv.id} value={sv.id}>{sv.nom_fr} — {sv.prix_sur_devis?'sur devis':new Intl.NumberFormat('fr-FR').format(sv.prix)+' FDJ'}</option>)}
             </select>
 
-            <div style={{ height:12 }}/>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              <div>
-                <label className="lbl">Début</label>
-                <input className="f" type="date" value={promoForm.date_debut}
-                  onChange={e=>setPromoForm(f=>({...f,date_debut:e.target.value}))} />
-              </div>
-              <div>
-                <label className="lbl">Fin</label>
-                <input className="f" type="date" value={promoForm.date_fin}
-                  onChange={e=>setPromoForm(f=>({...f,date_fin:e.target.value}))} />
-              </div>
+            {/* Mode de remise */}
+            <div style={{ height:14 }}/>
+            <label className="lbl">Type de remise</label>
+            <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+              {[
+                { key:'pct',  label:'% de réduction' },
+                { key:'fixe', label:'Montant fixe (FDJ)' },
+                { key:'prix', label:'Nouveau prix direct' },
+              ].map(m=>(
+                <button key={m.key} className={`chip${promoForm.mode===m.key?' on':''}`}
+                  style={{ flex:1, padding:'8px 6px', fontSize:11, textAlign:'center' }}
+                  onClick={()=>setPromoForm(f=>({...f,mode:m.key as PromoForm['mode']}))}>
+                  {m.label}
+                </button>
+              ))}
             </div>
 
-            <div style={{ height:12 }}/>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            {promoForm.mode==='pct' && (
               <div>
-                <label className="lbl">Utilisations max</label>
-                <input className="f" type="number" value={promoForm.nb_utilisations_max}
-                  onChange={e=>setPromoForm(f=>({...f,nb_utilisations_max:e.target.value}))} />
+                <label className="lbl">Réduction (%)</label>
+                <input className="f" type="number" min="1" max="100"
+                  value={promoForm.remise_pct} placeholder="20"
+                  onChange={e=>setPromoForm(f=>({...f,remise_pct:e.target.value}))} />
+                {promoForm.remise_pct && promoForm.service_id && (() => {
+                  const sv = services.find(x=>x.id===promoForm.service_id)
+                  if (!sv || sv.prix_sur_devis) return null
+                  const n = sv.prix * (1 - Number(promoForm.remise_pct)/100)
+                  return <div style={{ fontSize:11, color:'#2E7D32', marginTop:-8, marginBottom:8 }}>
+                    → Prix affiché : {new Intl.NumberFormat('fr-FR').format(Math.round(n))} FDJ
+                  </div>
+                })()}
               </div>
+            )}
+            {promoForm.mode==='fixe' && (
               <div>
-                <label className="lbl">Par cliente max</label>
-                <input className="f" type="number" value={promoForm.nb_par_cliente_max}
-                  onChange={e=>setPromoForm(f=>({...f,nb_par_cliente_max:e.target.value}))} />
+                <label className="lbl">Montant de la remise (FDJ)</label>
+                <input className="f" type="number" min="0"
+                  value={promoForm.remise_fixe} placeholder="5000"
+                  onChange={e=>setPromoForm(f=>({...f,remise_fixe:e.target.value}))} />
               </div>
+            )}
+            {promoForm.mode==='prix' && (
+              <div>
+                <label className="lbl">Nouveau prix (FDJ)</label>
+                {promoForm.service_id ? (() => {
+                  const sv = services.find(x=>x.id===promoForm.service_id)
+                  return sv && !sv.prix_sur_devis ? (
+                    <>
+                      <div style={{ fontSize:11, color:'#8A7A74', marginBottom:6 }}>
+                        Prix actuel : <strong>{new Intl.NumberFormat('fr-FR').format(sv.prix)} FDJ</strong>
+                      </div>
+                      <input className="f" type="number" min="0"
+                        value={promoForm.nouveau_prix} placeholder={String(Math.round(sv.prix*0.8))}
+                        onChange={e=>setPromoForm(f=>({...f,nouveau_prix:e.target.value}))} />
+                      {promoForm.nouveau_prix && (
+                        <div style={{ fontSize:11, color:'#2E7D32', marginTop:-8, marginBottom:8 }}>
+                          → Remise : {new Intl.NumberFormat('fr-FR').format(Math.max(0,sv.prix-Number(promoForm.nouveau_prix)))} FDJ
+                        </div>
+                      )}
+                    </>
+                  ) : <div style={{ fontSize:12, color:'#D14343' }}>Choisissez d'abord une prestation avec un prix fixe.</div>
+                })() : <div style={{ fontSize:12, color:'#8A7A74' }}>Sélectionnez une prestation ci-dessus.</div>}
+              </div>
+            )}
+
+            {/* Compte à rebours */}
+            <div style={{ height:14 }}/>
+            <div style={{ background:'#FBF7F1', borderRadius:14, padding:'14px 16px' }}>
+              <label className="lbl" style={{ marginBottom:10 }}>Compte à rebours</label>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+                <div>
+                  <label className="lbl" style={{ fontSize:9 }}>Date de fin</label>
+                  <input className="f" type="date" value={promoForm.date_fin} style={{ marginBottom:0 }}
+                    onChange={e=>setPromoForm(f=>({...f,date_fin:e.target.value}))} />
+                </div>
+                <div>
+                  <label className="lbl" style={{ fontSize:9 }}>Heure exacte</label>
+                  <input className="f" type="time" value={promoForm.date_fin_heure} style={{ marginBottom:0 }}
+                    onChange={e=>setPromoForm(f=>({...f,date_fin_heure:e.target.value}))} />
+                </div>
+              </div>
+
+              <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+                <button className={`sw${promoForm.auto_repeat?' on':''}`} type="button"
+                  onClick={()=>setPromoForm(f=>({...f,auto_repeat:!f.auto_repeat}))} />
+                <span style={{ fontSize:13, color:'#1A1A1A' }}>
+                  Relancer automatiquement (flash promo en boucle)
+                </span>
+              </label>
+
+              {promoForm.auto_repeat && (
+                <div style={{ marginTop:12 }}>
+                  <label className="lbl" style={{ fontSize:9 }}>Durée de chaque cycle (heures)</label>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                    {['6','12','24','48','72'].map(h=>(
+                      <button key={h} className={`chip${promoForm.duree_heures===h?' on':''}`}
+                        style={{ padding:'7px 14px', fontSize:12 }}
+                        onClick={()=>setPromoForm(f=>({...f,duree_heures:h}))}>
+                        {h}h
+                      </button>
+                    ))}
+                    <input className="f" type="number" min="1" max="720"
+                      value={promoForm.duree_heures} style={{ width:80, marginBottom:0, padding:'7px 10px', fontSize:12 }}
+                      onChange={e=>setPromoForm(f=>({...f,duree_heures:e.target.value}))} />
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Afficher sur le site */}
+            <div style={{ height:14 }}/>
+            <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer',
+              padding:'12px 14px', background:'#FBF7F1', borderRadius:12 }}>
+              <button className={`sw${promoForm.afficher_site?' on':''}`} type="button"
+                onClick={()=>setPromoForm(f=>({...f,afficher_site:!f.afficher_site}))} />
+              <div>
+                <div style={{ fontSize:13, fontWeight:500, color:'#1A1A1A' }}>Afficher sur le site</div>
+                <div style={{ fontSize:11, color:'#8A7A74', marginTop:2 }}>
+                  Prix barré + compte à rebours visible par les clientes
+                </div>
+              </div>
+            </label>
+
+            {/* Options avancées */}
+            <details style={{ marginTop:14 }}>
+              <summary style={{ fontSize:12, color:'#8A7A74', cursor:'pointer', userSelect:'none', padding:'8px 0' }}>
+                Options avancées ▸
+              </summary>
+              <div style={{ paddingTop:12, display:'flex', flexDirection:'column', gap:10 }}>
+                <div>
+                  <label className="lbl">Montant minimum (FDJ)</label>
+                  <input className="f" type="number" value={promoForm.montant_min}
+                    onChange={e=>setPromoForm(f=>({...f,montant_min:e.target.value}))} />
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  <div>
+                    <label className="lbl">Utilisations max</label>
+                    <input className="f" type="number" value={promoForm.nb_utilisations_max}
+                      onChange={e=>setPromoForm(f=>({...f,nb_utilisations_max:e.target.value}))} />
+                  </div>
+                  <div>
+                    <label className="lbl">Par cliente max</label>
+                    <input className="f" type="number" value={promoForm.nb_par_cliente_max}
+                      onChange={e=>setPromoForm(f=>({...f,nb_par_cliente_max:e.target.value}))} />
+                  </div>
+                </div>
+                <div>
+                  <label className="lbl">Date de début</label>
+                  <input className="f" type="date" value={promoForm.date_debut}
+                    onChange={e=>setPromoForm(f=>({...f,date_debut:e.target.value}))} />
+                </div>
+              </div>
+            </details>
 
             <div style={{ display:'flex', gap:9, marginTop:20 }}>
               <button className="b-ghost" onClick={()=>setPromoOpen(false)}>Annuler</button>
-              <button className="b-primary" style={{flex:1}} onClick={savePromo} disabled={saving||!promoForm.code}>
-                {saving?'Création...':'Créer le code'}
+              <button className="b-primary" style={{flex:1}} onClick={savePromo}
+                disabled={saving||!promoForm.code}>
+                {saving?'Création...':'Créer la promo'}
               </button>
             </div>
           </div>
