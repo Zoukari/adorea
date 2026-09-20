@@ -32,7 +32,7 @@ function PinScreen({ profile, onBack, onFallback }:
   const [pin, setPin] = useState('')
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
-  // supabase non utilisé ici : la session est créée via le lien d'action
+  // createClient utilisé au moment de la vérification OTP
   const router = useRouter()
   const params = useSearchParams()
 
@@ -50,16 +50,17 @@ function PinScreen({ profile, onBack, onFallback }:
       setErr(m[d.error] || 'Erreur. Réessayez.')
       setPin(''); setLoading(false); return
     }
-    // Supabase crée la session en suivant le lien d'action
-    if (d.action_link) {
-      const from = params.get('from') || '/admin'
-      const url = new URL(d.action_link)
-      url.searchParams.set('redirect_to', `${window.location.origin}${from}`)
-      window.location.href = url.toString()
-      return
+    // Vérification du code OTP à 6 chiffres généré côté serveur
+    const supa = createClient()
+    const { error } = await supa.auth.verifyOtp({
+      email: d.email, token: d.otp, type: 'email',
+    })
+    if (error) {
+      setErr(`Session échouée : ${error.message}`)
+      setLoading(false); return
     }
-    setErr('Session échouée. Utilisez la connexion par email.')
-    setLoading(false)
+    router.push(params.get('from') || '/admin')
+    router.refresh()
   }
 
   const addDigit = (d: string) => {

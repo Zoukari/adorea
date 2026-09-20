@@ -136,21 +136,39 @@ export default function LoyaltyPage() {
       date_fin_heure = new Date(`${promoForm.date_fin}T${h}:00`).toISOString()
     }
 
-    await supabase.from('promo_codes').insert({
+    // Colonnes de base, toujours présentes
+    const base: Record<string, unknown> = {
       code: promoForm.code.toUpperCase(),
       remise_pct, remise_fixe,
       montant_min: promoForm.montant_min ? Number(promoForm.montant_min) : null,
       service_id:  promoForm.service_id  || null,
       date_debut:  promoForm.date_debut  || null,
       date_fin:    promoForm.date_fin    || null,
+      nb_utilisations_max: promoForm.nb_utilisations_max ? Number(promoForm.nb_utilisations_max) : null,
+      nb_par_cliente_max:  promoForm.nb_par_cliente_max  ? Number(promoForm.nb_par_cliente_max)  : null,
+      actif: true,
+    }
+    // Colonnes ajoutées par la migration 08
+    const extra: Record<string, unknown> = {
       date_fin_heure,
       auto_repeat:  promoForm.auto_repeat,
       duree_heures: promoForm.auto_repeat && promoForm.duree_heures ? Number(promoForm.duree_heures) : null,
       afficher_site: promoForm.afficher_site,
-      nb_utilisations_max: promoForm.nb_utilisations_max ? Number(promoForm.nb_utilisations_max) : null,
-      nb_par_cliente_max:  promoForm.nb_par_cliente_max  ? Number(promoForm.nb_par_cliente_max)  : null,
-      actif: true,
-    })
+    }
+
+    let { error } = await supabase.from('promo_codes').insert({ ...base, ...extra })
+
+    // Si la migration 08 n'est pas appliquée, on réessaie sans ces colonnes
+    if (error && /column .* does not exist/i.test(error.message)) {
+      const retry = await supabase.from('promo_codes').insert(base)
+      error = retry.error
+      if (!error) {
+        alert("Promo créée.\n\nLe compte à rebours et l'affichage sur le site nécessitent la migration 08 (SQL Editor Supabase).")
+      }
+    }
+
+    if (error) { alert('Erreur : ' + error.message); setSaving(false); return }
+
     setSaving(false); setPromoOpen(false); setPromoForm(EMPTY_PROMO); load()
   }
   async function delPromo(id: string) {
