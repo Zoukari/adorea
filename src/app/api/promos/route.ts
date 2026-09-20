@@ -38,6 +38,9 @@ export async function GET() {
       remise_fixe: p.remise_fixe ? Number(p.remise_fixe) : null,
       montant_min: p.montant_min,
       service_id: p.service_id,
+      service_ids: Array.isArray(p.service_ids) && p.service_ids.length
+        ? p.service_ids
+        : (p.service_id ? [p.service_id] : []),
       ends_at: endsAt,
       auto_repeat: !!p.auto_repeat,
       auto_apply: p.auto_apply !== false,  // par défaut automatique

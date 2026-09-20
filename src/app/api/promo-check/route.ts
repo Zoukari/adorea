@@ -5,29 +5,42 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 export async function POST(req: NextRequest) {
   const { code, service_id, montant, client_id } = await req.json()
 
-  if (!code) return NextResponse.json({ error: 'CODE_REQUIRED' }, { status: 400 })
+  if (!code || !String(code).trim()) {
+    return NextResponse.json({ error: 'CODE_REQUIRED' }, { status: 400 })
+  }
 
-  const { data: p } = await supabaseAdmin
+  const clean = String(code).trim().toUpperCase()
+
+  // Recherche insensible à la casse et aux espaces superflus
+  const { data: rows } = await supabaseAdmin
     .from('promo_codes')
     .select('*')
-    .ilike('code', code.trim())
-    .single()
+    .eq('actif', true)
 
-  if (!p || !p.actif) return NextResponse.json({ error: 'CODE_INVALID' }, { status: 400 })
+  const p = (rows || []).find(
+    r => String(r.code || '').trim().toUpperCase() === clean
+  )
 
-  const now = new Date().toISOString()
-  const fin = p.date_fin_heure || (p.date_fin ? p.date_fin + 'T23:59:59Z' : null)
+  if (!p) return NextResponse.json({ error: 'CODE_INVALID' }, { status: 400 })
 
-  // Validité temporelle
-  if (p.date_debut && p.date_debut > now.split('T')[0]) {
+  const nowIso = new Date().toISOString()
+  const today = nowIso.split('T')[0]
+
+  // Pas encore commencée
+  if (p.date_debut && p.date_debut > today) {
     return NextResponse.json({ error: 'CODE_NOT_STARTED' }, { status: 400 })
   }
-  if (fin && !p.auto_repeat && fin < now) {
-    return NextResponse.json({ error: 'CODE_EXPIRED' }, { status: 400 })
+
+  // Expiration — ignorée si la promo se relance automatiquement
+  if (!p.auto_repeat) {
+    const fin = p.date_fin_heure || (p.date_fin ? `${p.date_fin}T23:59:59.999Z` : null)
+    if (fin && fin < nowIso) {
+      return NextResponse.json({ error: 'CODE_EXPIRED' }, { status: 400 })
+    }
   }
 
   // Quota global
-  if (p.nb_utilisations_max && p.nb_utilisations_actuel >= p.nb_utilisations_max) {
+  if (p.nb_utilisations_max && Number(p.nb_utilisations_actuel || 0) >= Number(p.nb_utilisations_max)) {
     return NextResponse.json({ error: 'CODE_EXHAUSTED' }, { status: 400 })
   }
 
@@ -37,34 +50,43 @@ export async function POST(req: NextRequest) {
       .from('promo_code_usage')
       .select('id', { count: 'exact', head: true })
       .eq('promo_id', p.id).eq('client_id', client_id)
-    if (Number(count) >= p.nb_par_cliente_max) {
+    if (Number(count || 0) >= Number(p.nb_par_cliente_max)) {
       return NextResponse.json({ error: 'CODE_USED_BY_CLIENT' }, { status: 400 })
     }
   }
 
-  // Restriction service
-  if (p.service_id && service_id && p.service_id !== service_id) {
+  // Restriction prestations : service_ids (liste) ou service_id (unique)
+  const ciblees: string[] =
+    Array.isArray(p.service_ids) && p.service_ids.length
+      ? p.service_ids
+      : p.service_id ? [p.service_id] : []
+
+  if (ciblees.length > 0 && service_id && !ciblees.includes(service_id)) {
     return NextResponse.json({ error: 'CODE_WRONG_SERVICE' }, { status: 400 })
   }
 
   // Montant minimum
-  if (p.montant_min && Number(montant) < Number(p.montant_min)) {
-    return NextResponse.json({ error: 'CODE_MIN_AMOUNT', min: p.montant_min }, { status: 400 })
+  const m = Number(montant || 0)
+  if (p.montant_min && m < Number(p.montant_min)) {
+    return NextResponse.json(
+      { error: 'CODE_MIN_AMOUNT', min: Number(p.montant_min) },
+      { status: 400 }
+    )
   }
 
-  // Calcul remise
   const remise = p.remise_pct
-    ? Math.round(Number(montant) * Number(p.remise_pct) / 100)
-    : Math.min(Number(p.remise_fixe || 0), Number(montant))
+    ? Math.round(m * Number(p.remise_pct) / 100)
+    : Math.min(Number(p.remise_fixe || 0), m)
 
   return NextResponse.json({
     valid: true,
-    remise_pct: p.remise_pct,
-    remise_fixe: p.remise_fixe,
+    promo_id: p.id,
+    remise_pct: p.remise_pct ? Number(p.remise_pct) : null,
+    remise_fixe: p.remise_fixe ? Number(p.remise_fixe) : null,
     remise,
-    prix_final: Number(montant) - remise,
+    prix_final: Math.max(0, m - remise),
     message: p.remise_pct
-      ? `−${p.remise_pct}% appliqué`
+      ? `−${Number(p.remise_pct)}% appliqué`
       : `−${new Intl.NumberFormat('fr-FR').format(remise)} FDJ`,
   })
 }

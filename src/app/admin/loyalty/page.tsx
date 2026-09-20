@@ -25,6 +25,7 @@ const EMPTY_RULE: Partial<LoyaltyRule> = {
 }
 
 interface PromoForm {
+  id?: string
   code: string
   auto_apply: boolean
   mode: 'pct' | 'fixe' | 'prix'   // prix = nouveau prix direct
@@ -32,7 +33,7 @@ interface PromoForm {
   remise_fixe: string
   nouveau_prix: string              // prix final voulu
   montant_min: string
-  service_id: string
+  service_ids: string[]
   date_debut: string
   date_fin: string
   date_fin_heure: string            // HH:MM
@@ -44,7 +45,7 @@ interface PromoForm {
 }
 const EMPTY_PROMO: PromoForm = {
   code:'', auto_apply:true, mode:'pct', remise_pct:'', remise_fixe:'', nouveau_prix:'', montant_min:'',
-  service_id:'', date_debut:'', date_fin:'', date_fin_heure:'23:59',
+  service_ids:[], date_debut:'', date_fin:'', date_fin_heure:'23:59',
   auto_repeat:false, duree_heures:'24', afficher_site:true,
   nb_utilisations_max:'', nb_par_cliente_max:'',
 }
@@ -128,8 +129,8 @@ export default function LoyaltyPage() {
       remise_pct = Number(promoForm.remise_pct)
     } else if (promoForm.mode === 'fixe' && promoForm.remise_fixe) {
       remise_fixe = Number(promoForm.remise_fixe)
-    } else if (promoForm.mode === 'prix' && promoForm.nouveau_prix && promoForm.service_id) {
-      const svc = services.find(sv => sv.id === promoForm.service_id)
+    } else if (promoForm.mode === 'prix' && promoForm.nouveau_prix && promoForm.service_ids.length) {
+      const svc = services.find(sv => sv.id === promoForm.service_ids[0])
       if (svc && !svc.prix_sur_devis) {
         remise_fixe = Math.max(0, Number(svc.prix||0) - Number(promoForm.nouveau_prix))
       }
@@ -147,7 +148,7 @@ export default function LoyaltyPage() {
       code: codeFinal,
       remise_pct, remise_fixe,
       montant_min: promoForm.montant_min ? Number(promoForm.montant_min) : null,
-      service_id:  promoForm.service_id  || null,
+      service_id:  promoForm.service_ids.length === 1 ? promoForm.service_ids[0] : null,
       date_debut:  promoForm.date_debut  || null,
       date_fin:    promoForm.date_fin    || null,
       nb_utilisations_max: promoForm.nb_utilisations_max ? Number(promoForm.nb_utilisations_max) : null,
@@ -157,17 +158,22 @@ export default function LoyaltyPage() {
     // Colonnes ajoutées par la migration 08
     const extra: Record<string, unknown> = {
       auto_apply: promoForm.auto_apply,
+      service_ids: promoForm.service_ids.length ? promoForm.service_ids : null,
       date_fin_heure,
       auto_repeat:  promoForm.auto_repeat,
       duree_heures: promoForm.auto_repeat && promoForm.duree_heures ? Number(promoForm.duree_heures) : null,
       afficher_site: promoForm.afficher_site,
     }
 
-    let { error } = await supabase.from('promo_codes').insert({ ...base, ...extra })
+    const write = (payload: Record<string, unknown>) =>
+      promoForm.id
+        ? supabase.from('promo_codes').update(payload).eq('id', promoForm.id)
+        : supabase.from('promo_codes').insert(payload)
 
-    // Si la migration 08 n'est pas appliquée, on réessaie sans ces colonnes
+    let { error } = await write({ ...base, ...extra })
+
     if (error && /column .* does not exist/i.test(error.message)) {
-      const retry = await supabase.from('promo_codes').insert(base)
+      const retry = await write(base)
       error = retry.error
       if (!error) {
         alert("Promo créée.\n\nLe compte à rebours et l'affichage sur le site nécessitent la migration 08 (SQL Editor Supabase).")
@@ -178,6 +184,37 @@ export default function LoyaltyPage() {
 
     setSaving(false); setPromoOpen(false); setPromoForm(EMPTY_PROMO); load()
   }
+  function editPromo(c: PromoCode) {
+    const rec = c as unknown as Record<string, unknown>
+    const fin = rec.date_fin_heure ? new Date(String(rec.date_fin_heure)) : null
+    const ids = Array.isArray(rec.service_ids) && (rec.service_ids as string[]).length
+      ? rec.service_ids as string[]
+      : (c.service_id ? [c.service_id] : [])
+    const auto = rec.auto_apply !== false
+    setPromoForm({
+      id: c.id,
+      code: auto ? '' : c.code,
+      auto_apply: auto,
+      mode: c.remise_pct ? 'pct' : 'fixe',
+      remise_pct:  c.remise_pct  ? String(c.remise_pct)  : '',
+      remise_fixe: c.remise_fixe ? String(c.remise_fixe) : '',
+      nouveau_prix: '',
+      montant_min: c.montant_min ? String(c.montant_min) : '',
+      service_ids: ids,
+      date_debut: c.date_debut || '',
+      date_fin:   c.date_fin   || '',
+      date_fin_heure: fin
+        ? `${String(fin.getHours()).padStart(2,'0')}:${String(fin.getMinutes()).padStart(2,'0')}`
+        : '23:59',
+      auto_repeat:   !!rec.auto_repeat,
+      duree_heures:  rec.duree_heures ? String(rec.duree_heures) : '24',
+      afficher_site: rec.afficher_site !== false,
+      nb_utilisations_max: c.nb_utilisations_max ? String(c.nb_utilisations_max) : '',
+      nb_par_cliente_max:  c.nb_par_cliente_max  ? String(c.nb_par_cliente_max)  : '',
+    })
+    setPromoOpen(true)
+  }
+
   async function delPromo(id: string) {
     if (!confirm('Supprimer ce code ?')) return
     await supabase.from('promo_codes').delete().eq('id', id); load()
@@ -277,9 +314,10 @@ export default function LoyaltyPage() {
                         background: ok?'#E8F5E9':'#F5F5F5', color: ok?'#2E7D32':T.muted }}>
                         {ok?'Actif':'Inactif'}
                       </span>
-                      <div style={{ display:'flex', gap:5 }}>
+                      <div style={{ display:'flex', gap:5, alignItems:'center' }}>
                         <button className={`sw${c.actif?' on':''}`}
                           onClick={async()=>{ await supabase.from('promo_codes').update({actif:!c.actif}).eq('id',c.id); load() }} />
+                        <button className="b-icon" onClick={()=>editPromo(c)}>✎</button>
                         <button className="b-icon" style={{ color:'#D14343' }} onClick={()=>delPromo(c.id)}>×</button>
                       </div>
                     </div>
@@ -392,7 +430,7 @@ export default function LoyaltyPage() {
         <div className="ovl" onClick={e=>e.target===e.currentTarget&&setPromoOpen(false)}>
           <div className="mdl" style={{ maxHeight:'90svh', overflowY:'auto' }}>
             <div className="mdl-h">
-              <h3>Nouveau code promo</h3>
+              <h3>{promoForm.id ? 'Modifier la promo' : 'Nouvelle promotion'}</h3>
               <button className="b-icon" onClick={()=>setPromoOpen(false)}>×</button>
             </div>
 
@@ -410,6 +448,29 @@ export default function LoyaltyPage() {
                     Appliquée toute seule pendant la période, sans code à saisir par la cliente.
                     Le prix barré apparaît sur le site.
                   </div>
+                  {promoForm.auto_apply && (() => {
+                    const rivales = codes.filter(c => {
+                      if (promoForm.id && c.id === promoForm.id) return false
+                      const r = c as unknown as Record<string, unknown>
+                      if (r.auto_apply === false || !c.actif) return false
+                      const ids = Array.isArray(r.service_ids) && (r.service_ids as string[]).length
+                        ? r.service_ids as string[]
+                        : (c.service_id ? [c.service_id] : [])
+                      // conflit si l'une des deux est globale, ou si elles se recoupent
+                      if (ids.length === 0 || promoForm.service_ids.length === 0) return true
+                      return ids.some(x => promoForm.service_ids.includes(x))
+                    })
+                    if (!rivales.length) return null
+                    return (
+                      <div style={{ marginTop:9, padding:'9px 11px', background:'#FFF8E1',
+                        border:'1px solid #E6C97A', borderRadius:10, fontSize:11,
+                        color:'#8A6030', lineHeight:1.55 }}>
+                        ⚠ {rivales.length} promotion{rivales.length>1?'s':''} automatique{rivales.length>1?'s':''} déjà
+                        active{rivales.length>1?'s':''} sur ces prestations. Sur le site, seule la remise la plus
+                        avantageuse sera appliquée.
+                      </div>
+                    )
+                  })()}
                 </div>
               </label>
             </div>
@@ -425,12 +486,51 @@ export default function LoyaltyPage() {
 
             {/* Prestation ciblée */}
             <div style={{ height:14 }}/>
-            <label className="lbl">Prestation ciblée</label>
-            <select className="f" value={promoForm.service_id}
-              onChange={e=>setPromoForm(f=>({...f,service_id:e.target.value,nouveau_prix:''}))}>
-              <option value="">Toutes les prestations</option>
-              {services.map(sv=><option key={sv.id} value={sv.id}>{sv.nom_fr} — {sv.prix_sur_devis?'sur devis':new Intl.NumberFormat('fr-FR').format(Number(sv.prix||0))+' FDJ'}</option>)}
-            </select>
+            <label className="lbl">Prestations concernées</label>
+            <div style={{ border:'1.5px solid #E5DACE', borderRadius:13, overflow:'hidden', marginBottom:4 }}>
+              <button type="button"
+                onClick={()=>setPromoForm(f=>({...f,service_ids:[],nouveau_prix:''}))}
+                style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'11px 13px',
+                  border:'none', borderBottom:'1px solid #F2EDE8', cursor:'pointer',
+                  background: promoForm.service_ids.length===0 ? '#FBF5EC' : '#fff',
+                  fontFamily:'Manrope,sans-serif', textAlign:'left' }}>
+                <span style={{ width:17, height:17, borderRadius:5, flexShrink:0,
+                  border: promoForm.service_ids.length===0 ? '5px solid #C9A96A' : '2px solid #C5B8A5' }}/>
+                <span style={{ fontSize:13, fontWeight:600, color:'#1A1A1A' }}>Toutes les prestations</span>
+              </button>
+
+              <div style={{ maxHeight:190, overflowY:'auto' }}>
+                {services.map(sv=>{
+                  const on = promoForm.service_ids.includes(sv.id)
+                  return (
+                    <button key={sv.id} type="button"
+                      onClick={()=>setPromoForm(f=>({
+                        ...f,
+                        service_ids: on ? f.service_ids.filter(x=>x!==sv.id) : [...f.service_ids, sv.id],
+                        nouveau_prix:'',
+                      }))}
+                      style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 13px',
+                        border:'none', borderBottom:'1px solid #F7F2EC', cursor:'pointer',
+                        background: on ? '#FBF5EC' : '#fff', fontFamily:'Manrope,sans-serif', textAlign:'left' }}>
+                      <span style={{ width:17, height:17, borderRadius:5, flexShrink:0,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        background: on ? '#C9A96A' : '#fff',
+                        border: on ? '2px solid #C9A96A' : '2px solid #C5B8A5',
+                        color:'#fff', fontSize:11, fontWeight:700 }}>{on ? '✓' : ''}</span>
+                      <span style={{ flex:1, fontSize:12.5, color:'#1A1A1A' }}>{sv.nom_fr}</span>
+                      <span style={{ fontSize:11, color:'#8A7A74' }}>
+                        {sv.prix_sur_devis ? 'devis' : new Intl.NumberFormat('fr-FR').format(Number(sv.prix||0))+' FDJ'}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div style={{ fontSize:11, color:'#8A7A74', marginBottom:4 }}>
+              {promoForm.service_ids.length===0
+                ? 'La promo s\'applique à toutes les prestations.'
+                : `${promoForm.service_ids.length} prestation(s) sélectionnée(s).`}
+            </div>
 
             {/* Mode de remise */}
             <div style={{ height:14 }}/>
@@ -455,8 +555,8 @@ export default function LoyaltyPage() {
                 <input className="f" type="number" min="1" max="100"
                   value={promoForm.remise_pct} placeholder="20"
                   onChange={e=>setPromoForm(f=>({...f,remise_pct:e.target.value}))} />
-                {promoForm.remise_pct && promoForm.service_id && (() => {
-                  const sv = services.find(x=>x.id===promoForm.service_id)
+                {promoForm.remise_pct && promoForm.service_ids.length===1 && (() => {
+                  const sv = services.find(x=>x.id===promoForm.service_ids[0])
                   if (!sv || sv.prix_sur_devis) return null
                   const n = Number(sv.prix||0) * (1 - Number(promoForm.remise_pct)/100)
                   return <div style={{ fontSize:11, color:'#2E7D32', marginTop:-8, marginBottom:8 }}>
@@ -476,8 +576,8 @@ export default function LoyaltyPage() {
             {promoForm.mode==='prix' && (
               <div>
                 <label className="lbl">Nouveau prix (FDJ)</label>
-                {promoForm.service_id ? (() => {
-                  const sv = services.find(x=>x.id===promoForm.service_id)
+                {promoForm.service_ids.length===1 ? (() => {
+                  const sv = services.find(x=>x.id===promoForm.service_ids[0])
                   return sv && !sv.prix_sur_devis ? (
                     <>
                       <div style={{ fontSize:11, color:'#8A7A74', marginBottom:6 }}>
@@ -591,7 +691,7 @@ export default function LoyaltyPage() {
               <button className="b-ghost" onClick={()=>setPromoOpen(false)}>Annuler</button>
               <button className="b-primary" style={{flex:1}} onClick={savePromo}
                 disabled={saving||(!promoForm.auto_apply&&!promoForm.code)}>
-                {saving?'Création...':'Créer la promo'}
+                {saving ? 'Enregistrement...' : promoForm.id ? 'Enregistrer' : 'Créer la promo'}
               </button>
             </div>
           </div>

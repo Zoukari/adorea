@@ -295,7 +295,7 @@ function useOpeningHours(lang: Lang) {
 type LivePromo = {
   id: string; code: string; remise_pct: number|null; remise_fixe: number|null
   montant_min: number|null; ends_at: string|null; auto_repeat: boolean
-  auto_apply: boolean; code_visible: string|null; service_id: string|null
+  auto_apply: boolean; code_visible: string|null; service_id: string|null; service_ids: string[]
   service: {id:string;nom_fr:string;prix:number}|null
 }
 function usePromos() {
@@ -320,6 +320,26 @@ function useCountdown(endsAt: string|null) {
     return () => clearInterval(id)
   }, [endsAt])
   return left
+}
+
+
+// Meilleure promo automatique applicable à une prestation
+function bestPromoFor(promos: LivePromo[], serviceId: string, prix: number): LivePromo | null {
+  const applicables = promos.filter(p =>
+    p.auto_apply &&
+    (p.service_ids.length === 0 || p.service_ids.includes(serviceId))
+  )
+  if (!applicables.length) return null
+  return applicables.reduce((best, p) => {
+    const r  = p.remise_pct ? prix * Number(p.remise_pct) / 100 : Number(p.remise_fixe || 0)
+    const rb = best.remise_pct ? prix * Number(best.remise_pct) / 100 : Number(best.remise_fixe || 0)
+    return r > rb ? p : best
+  })
+}
+function remiseDe(p: LivePromo, prix: number): number {
+  return p.remise_pct
+    ? Math.round(prix * Number(p.remise_pct) / 100)
+    : Math.min(Number(p.remise_fixe || 0), prix)
 }
 
 const FDJ_LAND = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FDJ'
@@ -1139,13 +1159,9 @@ function BookingModal({ lang, onClose, sections, promos }: { lang: Lang; onClose
 
   // Promo automatique applicable à la prestation sélectionnée
   const autoPromo = selSvc && !selSvc.devis
-    ? promos.find(p => p.auto_apply && (!p.service_id || p.service_id === selSvc.id)) || null
+    ? bestPromoFor(promos, selSvc.id, selSvc.prix)
     : null
-  const autoRemise = autoPromo && selSvc
-    ? (autoPromo.remise_pct
-        ? Math.round(selSvc.prix * Number(autoPromo.remise_pct) / 100)
-        : Math.min(Number(autoPromo.remise_fixe||0), selSvc.prix))
-    : 0
+  const autoRemise = autoPromo && selSvc ? remiseDe(autoPromo, selSvc.prix) : 0
   const [submitting, setSubmitting] = useState(false)
   const [submitErr, setSubmitErr] = useState('')
 
@@ -1334,11 +1350,9 @@ function BookingModal({ lang, onClose, sections, promos }: { lang: Lang; onClose
                     {(() => {
                       if (item.devis) return <span className="pick-devis-badge">
                         {lang==='AR'?'· حسب التقدير':lang==='EN'?'· On quote':'· Sur devis'}</span>
-                      const pr = promos.find(p2 => !p2.service_id || p2.service_id === item.id)
+                      const pr = bestPromoFor(promos, item.id, item.prix)
                       if (!pr) return <span className="pick-devis-badge">{' · ' + FDJ_LAND(item.prix)}</span>
-                      const np = pr.remise_pct
-                        ? item.prix * (1 - Number(pr.remise_pct)/100)
-                        : Math.max(0, item.prix - Number(pr.remise_fixe||0))
+                      const np = Math.max(0, item.prix - remiseDe(pr, item.prix))
                       return (
                         <span className="pick-devis-badge">
                           {' · '}
@@ -1843,15 +1857,10 @@ export default function Home() {
                     <div key={j} className="svc-list-item">
                       <span style={{flex:1}}>{item.name}</span>
                       {(() => {
-                        // Une promo s'applique si elle vise cette prestation
-                        // OU si elle est globale (service_id null = toutes)
-                        const promo = livePromos.find(p2 =>
-                          !item.devis && (!p2.service_id || p2.service_id === item.id))
                         if (item.devis) return <span className="svc-price">{lang==='AR'?'حسب التقدير':lang==='EN'?'On quote':'Sur devis'}</span>
+                        const promo = bestPromoFor(livePromos, item.id, item.prix)
                         if (!promo) return <span className="svc-price">{FDJ_LAND(item.prix)}</span>
-                        const newPx = promo.remise_pct
-                          ? item.prix * (1 - Number(promo.remise_pct)/100)
-                          : Math.max(0, item.prix - Number(promo.remise_fixe||0))
+                        const newPx = Math.max(0, item.prix - remiseDe(promo, item.prix))
                         return (
                           <span style={{display:'flex',alignItems:'center',gap:5}}>
                             <span style={{textDecoration:'line-through',color:'rgba(250,246,240,0.3)',fontSize:10.5}}>{FDJ_LAND(item.prix)}</span>
