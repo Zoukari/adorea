@@ -26,6 +26,7 @@ const EMPTY_RULE: Partial<LoyaltyRule> = {
 
 interface PromoForm {
   code: string
+  auto_apply: boolean
   mode: 'pct' | 'fixe' | 'prix'   // prix = nouveau prix direct
   remise_pct: string
   remise_fixe: string
@@ -42,7 +43,7 @@ interface PromoForm {
   nb_par_cliente_max: string
 }
 const EMPTY_PROMO: PromoForm = {
-  code:'', mode:'pct', remise_pct:'', remise_fixe:'', nouveau_prix:'', montant_min:'',
+  code:'', auto_apply:true, mode:'pct', remise_pct:'', remise_fixe:'', nouveau_prix:'', montant_min:'',
   service_id:'', date_debut:'', date_fin:'', date_fin_heure:'23:59',
   auto_repeat:false, duree_heures:'24', afficher_site:true,
   nb_utilisations_max:'', nb_par_cliente_max:'',
@@ -111,8 +112,13 @@ export default function LoyaltyPage() {
 
   // ── Codes promo ──
   async function savePromo() {
-    if (!promoForm.code) return
+    if (!promoForm.auto_apply && !promoForm.code) return
     setSaving(true)
+
+    // Une promo automatique reçoit un code interne unique, jamais montré aux clientes
+    const codeFinal = promoForm.auto_apply
+      ? 'AUTO-' + Date.now().toString(36).toUpperCase()
+      : promoForm.code.toUpperCase()
 
     // Calcul des remises selon le mode
     let remise_pct: number|null = null
@@ -138,7 +144,7 @@ export default function LoyaltyPage() {
 
     // Colonnes de base, toujours présentes
     const base: Record<string, unknown> = {
-      code: promoForm.code.toUpperCase(),
+      code: codeFinal,
       remise_pct, remise_fixe,
       montant_min: promoForm.montant_min ? Number(promoForm.montant_min) : null,
       service_id:  promoForm.service_id  || null,
@@ -150,6 +156,7 @@ export default function LoyaltyPage() {
     }
     // Colonnes ajoutées par la migration 08
     const extra: Record<string, unknown> = {
+      auto_apply: promoForm.auto_apply,
       date_fin_heure,
       auto_repeat:  promoForm.auto_repeat,
       duree_heures: promoForm.auto_repeat && promoForm.duree_heures ? Number(promoForm.duree_heures) : null,
@@ -390,10 +397,31 @@ export default function LoyaltyPage() {
             </div>
 
             {/* Code */}
-            <label className="lbl">Code promo *</label>
-            <input className="f" value={promoForm.code} autoFocus
-              onChange={e=>setPromoForm(f=>({...f,code:e.target.value.toUpperCase()}))}
-              placeholder="ADOREA20" />
+            <div style={{ background:'#FBF5EC', border:'1.5px solid #E8D5B0', borderRadius:13,
+              padding:'12px 14px', marginBottom:16 }}>
+              <label style={{ display:'flex', alignItems:'flex-start', gap:11, cursor:'pointer' }}>
+                <button className={`sw${promoForm.auto_apply?' on':''}`} type="button" style={{marginTop:2}}
+                  onClick={()=>setPromoForm(f=>({...f,auto_apply:!f.auto_apply, code: !f.auto_apply ? '' : f.code, afficher_site: !f.auto_apply ? true : f.afficher_site}))} />
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#1A1A1A' }}>
+                    Promotion automatique
+                  </div>
+                  <div style={{ fontSize:11, color:'#8A7A74', marginTop:3, lineHeight:1.55 }}>
+                    Appliquée toute seule pendant la période, sans code à saisir par la cliente.
+                    Le prix barré apparaît sur le site.
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {!promoForm.auto_apply && (
+              <>
+                <label className="lbl">Code promo *</label>
+                <input className="f" value={promoForm.code} autoFocus
+                  onChange={e=>setPromoForm(f=>({...f,code:e.target.value.toUpperCase()}))}
+                  placeholder="ADOREA20" />
+              </>
+            )}
 
             {/* Prestation ciblée */}
             <div style={{ height:14 }}/>
@@ -562,7 +590,7 @@ export default function LoyaltyPage() {
             <div style={{ display:'flex', gap:9, marginTop:20 }}>
               <button className="b-ghost" onClick={()=>setPromoOpen(false)}>Annuler</button>
               <button className="b-primary" style={{flex:1}} onClick={savePromo}
-                disabled={saving||!promoForm.code}>
+                disabled={saving||(!promoForm.auto_apply&&!promoForm.code)}>
                 {saving?'Création...':'Créer la promo'}
               </button>
             </div>

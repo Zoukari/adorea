@@ -295,6 +295,7 @@ function useOpeningHours(lang: Lang) {
 type LivePromo = {
   id: string; code: string; remise_pct: number|null; remise_fixe: number|null
   montant_min: number|null; ends_at: string|null; auto_repeat: boolean
+  auto_apply: boolean; code_visible: string|null; service_id: string|null
   service: {id:string;nom_fr:string;prix:number}|null
 }
 function usePromos() {
@@ -1000,9 +1001,20 @@ function PromoBanner({ promo, svcs, lang }: { promo: LivePromo; svcs: typeof FAL
 
   return (
     <div className="promo-banner rv">
-      <span className="promo-code">{promo.code}</span>
+      {promo.code_visible ? (
+        <span className="promo-code">{promo.code_visible}</span>
+      ) : (
+        <span className="promo-code" style={{fontSize:13,fontStyle:'italic',letterSpacing:'.14em',textTransform:'uppercase'}}>
+          {lang==='FR'?'Offre':lang==='EN'?'Offer':'عرض'}
+        </span>
+      )}
       <div className="promo-desc">
         <strong>{desc} {lang==='FR'?'sur':lang==='EN'?'on':'على'} {svcName}</strong>
+        {!promo.code_visible && (
+          <span style={{fontSize:10,marginLeft:8,opacity:.6}}>
+            {lang==='FR'?'· appliqué automatiquement':lang==='EN'?'· applied automatically':'· يطبق تلقائياً'}
+          </span>
+        )}
         {newPrice !== null && svcPrice && (
           <div style={{marginTop:4}}>
             <span className="promo-strikethrough">{FDJ_FMT(svcPrice)} FDJ</span>
@@ -1026,7 +1038,7 @@ function PromoBanner({ promo, svcs, lang }: { promo: LivePromo; svcs: typeof FAL
   )
 }
 
-function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => void; sections: LiveSection[] }) {
+function BookingModal({ lang, onClose, sections, promos }: { lang: Lang; onClose: () => void; sections: LiveSection[]; promos: LivePromo[] }) {
   const t = T[lang]
   const [step, setStep]       = useState(0)
   const [selCat, setCat]      = useState<string|null>(null)
@@ -1074,7 +1086,13 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
 
   function buildMsg() {
     let msg = `Bonjour ADORÉA ✨\n\n`
-    msg += `━━ PRESTATION ━━\n${selSvc?.name}${selSvc?.devis ? '\n⚠️ Prestation sur devis — j\'attends votre estimation.' : `\nTarif : ${FDJ_LAND(selSvc?.prix || 0)}`}\n\n`
+    const remiseTotale = autoRemise + (promoResult?.remise || 0)
+    const prixNet = Math.max(0, (selSvc?.prix || 0) - remiseTotale)
+    msg += `━━ PRESTATION ━━\n${selSvc?.name}`
+    if (selSvc?.devis) msg += `\n⚠️ Prestation sur devis — j'attends votre estimation.`
+    else if (remiseTotale > 0) msg += `\nTarif : ${FDJ_LAND(selSvc?.prix || 0)}\nPromotion : −${FDJ_LAND(remiseTotale)}\nÀ régler : ${FDJ_LAND(prixNet)}`
+    else msg += `\nTarif : ${FDJ_LAND(selSvc?.prix || 0)}`
+    msg += `\n\n`
     msg += `━━ DATE SOUHAITÉE ━━\n${selDate} à ${selSlot}\n\n`
     msg += `━━ MES COORDONNÉES ━━\nPrénom : ${form.prenom}\nNom : ${form.nom}\nTéléphone : ${form.tel}\n${form.dob?`Date de naissance : ${form.dob}\n`:''}`
     if (form.notes) msg += `\n━━ INFORMATIONS COMPLÉMENTAIRES ━━\n${form.notes}\n`
@@ -1118,6 +1136,16 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
   const [promoResult, setPromoResult] = useState<{remise:number;prix_final:number;message:string}|null>(null)
   const [promoErr, setPromoErr] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
+
+  // Promo automatique applicable à la prestation sélectionnée
+  const autoPromo = selSvc && !selSvc.devis
+    ? promos.find(p => p.auto_apply && (!p.service_id || p.service_id === selSvc.id)) || null
+    : null
+  const autoRemise = autoPromo && selSvc
+    ? (autoPromo.remise_pct
+        ? Math.round(selSvc.prix * Number(autoPromo.remise_pct) / 100)
+        : Math.min(Number(autoPromo.remise_fixe||0), selSvc.prix))
+    : 0
   const [submitting, setSubmitting] = useState(false)
   const [submitErr, setSubmitErr] = useState('')
 
@@ -1514,6 +1542,23 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
         {/* STEP 4 */}
         {step===4 && (
           <>
+            {/* Promo automatique appliquée */}
+            {autoPromo && autoRemise > 0 && (
+              <div style={{ marginBottom:16, padding:'13px 15px', background:'#F1F8F2',
+                border:'1.5px solid #A5D6A7', borderRadius:13, fontFamily:'Montserrat,sans-serif' }}>
+                <div style={{ fontSize:12.5, fontWeight:600, color:'#2E7D32', marginBottom:5 }}>
+                  ✓ {lang==='FR'?'Promotion appliquée automatiquement':lang==='EN'?'Promotion applied automatically':'تم تطبيق العرض تلقائياً'}
+                </div>
+                <div style={{ fontSize:12, color:'#4A7C4E', display:'flex', gap:8, alignItems:'baseline' }}>
+                  <span style={{ textDecoration:'line-through', opacity:.6 }}>{FDJ_LAND(selSvc?.prix||0)}</span>
+                  <strong style={{ fontSize:15 }}>{FDJ_LAND((selSvc?.prix||0) - autoRemise)}</strong>
+                  <span style={{ fontSize:11 }}>
+                    ({autoPromo.remise_pct ? `−${autoPromo.remise_pct}%` : `−${FDJ_LAND(autoRemise)}`})
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Code promo */}
             <div style={{ marginBottom:18 }}>
               <label className="f-lbl">
@@ -1951,7 +1996,7 @@ export default function Home() {
         </a>
       </div>
 
-      {booking && <BookingModal lang={lang} sections={SECTIONS} onClose={()=>setBooking(false)}/>}
+      {booking && <BookingModal lang={lang} sections={SECTIONS} promos={livePromos} onClose={()=>setBooking(false)}/>}
     </div>
   )
 }

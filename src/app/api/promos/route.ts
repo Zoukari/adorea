@@ -40,6 +40,8 @@ export async function GET() {
       service_id: p.service_id,
       ends_at: endsAt,
       auto_repeat: !!p.auto_repeat,
+      auto_apply: p.auto_apply !== false,  // par défaut automatique
+      code_visible: p.auto_apply === false ? p.code : null,
     }
   })
 

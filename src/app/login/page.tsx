@@ -80,14 +80,16 @@ function PinScreen({ profile, onBack, onFallback }:
       <div style={{ fontSize:18, fontWeight:600, color:T.black, marginBottom:2 }}>{profile.prenom} {profile.nom}</div>
       <div style={{ fontSize:11, color:T.muted, marginBottom:6 }}>{profile.email}</div>
       <div style={{ fontSize:11, color:T.muted, marginBottom:28, letterSpacing:'.08em', textTransform:'uppercase' }}>
-        {profile.has_pin ? 'Entrez votre PIN' : 'PIN non configuré — utilisez votre email'}
+        {profile.has_pin ? 'Entrez votre PIN (4 à 6 chiffres)' : 'PIN non configuré — utilisez votre email'}
       </div>
 
       {/* Indicateur points */}
-      <div style={{ display:'flex', justifyContent:'center', gap:10, marginBottom:28 }}>
-        {Array.from({length:6}).map((_,i) => (
+      <div style={{ display:'flex', justifyContent:'center', gap:11, marginBottom:28, minHeight:12 }}>
+        {Array.from({length: Math.max(4, pin.length)}).map((_,i) => (
           <div key={i} style={{ width:12, height:12, borderRadius:'50%',
-            background: i < pin.length ? T.black : T.beige, transition:'background .15s' }}/>
+            background: i < pin.length ? T.black : T.beige,
+            transition:'background .15s, transform .15s',
+            transform: i === pin.length-1 ? 'scale(1.18)' : 'scale(1)' }}/>
         ))}
       </div>
 
@@ -97,7 +99,12 @@ function PinScreen({ profile, onBack, onFallback }:
       )}
 
       {loading ? (
-        <div style={{ fontSize:13, color:T.muted, padding:'16px 0' }}>Connexion...</div>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'28px 0' }}>
+          <div style={{ width:26, height:26, border:`2.5px solid ${T.beige}`, borderTopColor:T.gold,
+            borderRadius:'50%', animation:'pinSpin .7s linear infinite' }}/>
+          <div style={{ fontSize:12.5, color:T.muted, fontFamily:'Manrope,sans-serif' }}>Connexion...</div>
+          <style>{`@keyframes pinSpin{to{transform:rotate(360deg)}}`}</style>
+        </div>
       ) : profile.has_pin ? (
         <NumPad onDigit={addDigit} onDelete={()=>{ setPin(p=>p.slice(0,-1)); setErr('') }}/>
       ) : null}
