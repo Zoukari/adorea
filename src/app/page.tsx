@@ -986,7 +986,7 @@ function PromoBanner({ promo, svcs, lang }: { promo: LivePromo; svcs: typeof FAL
   const timer = useCountdown(promo.ends_at)
   const FDJ_FMT = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n))
 
-  const svcPrice = promo.service?.prix
+  const svcPrice = promo.service?.prix ? Number(promo.service.prix) : null
   const newPrice = promo.remise_pct && svcPrice
     ? svcPrice * (1 - promo.remise_pct/100) : svcPrice && promo.remise_fixe
     ? svcPrice - Number(promo.remise_fixe) : null
@@ -997,7 +997,7 @@ function PromoBanner({ promo, svcs, lang }: { promo: LivePromo; svcs: typeof FAL
     ? `−${FDJ_FMT(Number(promo.remise_fixe))} FDJ`
     : ''
 
-  const svcName = promo.service?.nom_fr || (lang==='FR'?'toutes les prestations':lang==='EN'?'all services':'جميع الخدمات')
+  const svcName = promo.service?.nom_fr || (lang==='FR'?'toutes nos prestations':lang==='EN'?'all our services':'جميع خدماتنا')
 
   return (
     <div className="promo-banner rv">
@@ -1829,8 +1829,10 @@ export default function Home() {
                     <div key={j} className="svc-list-item">
                       <span style={{flex:1}}>{item.name}</span>
                       {(() => {
+                        // Une promo s'applique si elle vise cette prestation
+                        // OU si elle est globale (service_id null = toutes)
                         const promo = livePromos.find(p2 =>
-                          p2.service && p2.service.id === item.id && !item.devis)
+                          !item.devis && (!p2.service_id || p2.service_id === item.id))
                         if (item.devis) return <span className="svc-price">{lang==='AR'?'حسب التقدير':lang==='EN'?'On quote':'Sur devis'}</span>
                         if (!promo) return <span className="svc-price">{FDJ_LAND(item.prix)}</span>
                         const newPx = promo.remise_pct
