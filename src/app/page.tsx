@@ -1783,9 +1783,21 @@ export default function Home() {
                   {s.items.map((item,j)=>(
                     <div key={j} className="svc-list-item">
                       <span style={{flex:1}}>{item.name}</span>
-                      <span className="svc-price">
-                        {item.devis ? (lang==='AR'?'حسب التقدير':lang==='EN'?'On quote':'Sur devis') : FDJ_LAND(item.prix)}
-                      </span>
+                      {(() => {
+                        const promo = livePromos.find(p2 =>
+                          p2.service && p2.service.id === item.id && !item.devis)
+                        if (item.devis) return <span className="svc-price">{lang==='AR'?'حسب التقدير':lang==='EN'?'On quote':'Sur devis'}</span>
+                        if (!promo) return <span className="svc-price">{FDJ_LAND(item.prix)}</span>
+                        const newPx = promo.remise_pct
+                          ? item.prix * (1 - Number(promo.remise_pct)/100)
+                          : Math.max(0, item.prix - Number(promo.remise_fixe||0))
+                        return (
+                          <span style={{display:'flex',alignItems:'center',gap:5}}>
+                            <span style={{textDecoration:'line-through',color:'rgba(250,246,240,0.3)',fontSize:10.5}}>{FDJ_LAND(item.prix)}</span>
+                            <span className="svc-price" style={{color:'#E2C07A'}}>{FDJ_LAND(newPx)}</span>
+                          </span>
+                        )
+                      })()}
                     </div>
                   ))}
                 </div>

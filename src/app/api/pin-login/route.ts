@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase-server'
 export async function GET() {
   const { data } = await supabaseAdmin
     .from('profiles')
-    .select('id, prenom, nom, role, avatar_initials, email')
+    .select('id, prenom, nom, role, avatar_initials, email, admin_pin_hash')
     .eq('actif', true)
     .order('prenom')
 
@@ -19,7 +19,7 @@ export async function GET() {
       email: p.email,
       initials: p.avatar_initials ||
         ((p.prenom || 'A').charAt(0) + (p.nom || 'A').charAt(0)).toUpperCase(),
-      has_pin: true, // on suppose que les admins ont un PIN ou peuvent le définir
+      has_pin: !!(p as Record<string,unknown>)['admin_pin_hash'],
     }))
   })
 }
