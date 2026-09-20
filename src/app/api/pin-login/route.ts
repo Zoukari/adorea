@@ -64,12 +64,14 @@ export async function POST(req: NextRequest) {
     options: { redirectTo: `${new URL(req.url).origin}/admin` }
   })
 
-  const hashed = linkData?.properties?.hashed_token
-  if (error || !hashed) {
-    return NextResponse.json({ error: 'SESSION_FAILED', detail: error?.message || 'no token' }, { status: 500 })
+  const actionLink = linkData?.properties?.action_link
+  if (error || !actionLink) {
+    return NextResponse.json({ error: 'SESSION_FAILED', detail: error?.message || 'no link' }, { status: 500 })
   }
 
-  return NextResponse.json({ token: hashed, email: profile.email })
+  // On renvoie le lien d'action : le navigateur le suit et Supabase
+  // crée la session lui-même, sans verifyOtp côté client
+  return NextResponse.json({ action_link: actionLink, email: profile.email })
 }
 
 // PUT /api/pin-login — définir ou changer son PROPRE PIN uniquement

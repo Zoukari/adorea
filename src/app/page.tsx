@@ -1299,7 +1299,7 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
             </div>
             <div className="pick-list">
               {filteredSvcs.flatMap(s => s.items.map(item => (
-                <button key={item.name} className={`pick-item${selSvc?.name===item.name?' on':''}`} onClick={()=>setSvc(item)}>
+                <button key={item.id} className={`pick-item${selSvc?.id===item.id?' on':''}`} onClick={()=>setSvc(item)}>
                   <div className="rdot"/>
                   <div>
                     <span className="pick-name">{item.name}</span>
