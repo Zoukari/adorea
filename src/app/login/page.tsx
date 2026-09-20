@@ -70,6 +70,7 @@ function PinScreen({ profile, onBack, onFallback }:
         {profile.initials}
       </div>
       <div style={{ fontSize:18, fontWeight:600, color:T.black, marginBottom:2 }}>{profile.prenom} {profile.nom}</div>
+      <div style={{ fontSize:11, color:T.muted, marginBottom:6 }}>{profile.email}</div>
       <div style={{ fontSize:11, color:T.muted, marginBottom:28, letterSpacing:'.08em', textTransform:'uppercase' }}>
         {profile.has_pin ? 'Entrez votre PIN' : 'PIN non configuré — utilisez votre email'}
       </div>
@@ -226,10 +227,13 @@ function LoginContent() {
                         fontFamily:'Cormorant Garamond,serif', fontSize:18, fontWeight:300 }}>
                         {p.initials}
                       </div>
-                      <div style={{ flex:1, textAlign:'left' as const }}>
+                      <div style={{ flex:1, textAlign:'left' as const, minWidth:0 }}>
                         <div style={{ fontSize:14, fontWeight:600, color:T.black }}>{p.prenom} {p.nom}</div>
-                        <div style={{ fontSize:11, color:T.muted, marginTop:2 }}>
-                          {p.role.replace(/_/g,' ')} {p.has_pin ? '🔒' : '· Sans PIN'}
+                        <div style={{ fontSize:11, color:T.muted, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {p.email}
+                        </div>
+                        <div style={{ fontSize:10, color: p.has_pin ? T.gold : T.beige, marginTop:2 }}>
+                          {p.has_pin ? '🔒 PIN actif' : 'Sans PIN'}
                         </div>
                       </div>
                       <span style={{ color:T.beige, fontSize:20 }}>›</span>

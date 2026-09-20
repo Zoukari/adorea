@@ -99,7 +99,7 @@ export default function SettingsPage() {
         <button className={tab==='general'?'on':''} onClick={()=>setTab('general')}>Général</button>
         <button className={tab==='wa'?'on':''} onClick={()=>setTab('wa')}>WhatsApp</button>
         <button className={tab==='social'?'on':''} onClick={()=>setTab('social')}>Réseaux sociaux</button>
-        <button className={tab==='pin'?'on':''} onClick={()=>setTab('pin')}>Mon PIN</button>
+        <button className={tab==='pin'?'on':''} onClick={()=>setTab('pin')}>Mon profil</button>
       </div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:32 }}>
         <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:32, fontWeight:300 }}>Paramètres</h1>
@@ -157,55 +157,106 @@ export default function SettingsPage() {
         </div>
       ))}
 
-      {tab==='pin' && <PinSection/>}
+      {tab==='pin' && <ProfileSection/>}
 
 
     </div>
   )
 }
 // ── Paramétrage du PIN ──────────────────────────────────────
-function PinSection() {
+function ProfileSection() {
+  const supabase = createClient()
+  const [prenom, setPrenom] = useState('')
+  const [nom, setNom] = useState('')
+  const [email, setEmail] = useState('')
   const [pin, setPin] = useState('')
   const [confirm, setConfirm] = useState('')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setEmail(user.email || '')
+      const { data: p } = await supabase.from('profiles').select('prenom, nom').eq('id', user.id).maybeSingle()
+      if (p) { setPrenom(p.prenom || ''); setNom(p.nom || '') }
+      setLoading(false)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function saveName() {
+    setMsg(''); setErr('')
+    if (!prenom.trim()) { setErr('Le prénom est requis.'); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('profiles').update({ prenom: prenom.trim(), nom: nom.trim() }).eq('id', user.id)
+    setMsg('Nom mis à jour !')
+    setTimeout(() => setMsg(''), 3000)
+  }
 
   async function savePin() {
     setMsg(''); setErr('')
     if (!/^\d{4,6}$/.test(pin)) { setErr('Le PIN doit contenir 4 à 6 chiffres.'); return }
     if (pin !== confirm) { setErr('Les deux PIN ne correspondent pas.'); return }
     const res = await fetch('/api/pin-login', {
-      method: 'PUT',
-      headers: { 'Content-Type':'application/json' },
+      method: 'PUT', headers: { 'Content-Type':'application/json' },
       body: JSON.stringify({ pin }),
     })
     if (res.ok) { setMsg('PIN enregistré !'); setPin(''); setConfirm('') }
     else { setErr('Erreur. Réessayez.') }
   }
 
+  if (loading) return <div style={{padding:20,color:'#8A7A74',fontSize:13}}>Chargement...</div>
+
   return (
-    <div style={{ maxWidth:380 }}>
-      <div style={{ fontSize:13, color:'#8A7A74', lineHeight:1.7, marginBottom:20 }}>
-        Le PIN vous permet de vous connecter rapidement à l&apos;espace admin sans saisir votre email et mot de passe.
-        Choisissez un code entre 4 et 6 chiffres.
+    <div style={{ maxWidth:420 }}>
+      {/* Identité */}
+      <div style={{ background:'#fff', border:'1.5px solid #EFE6DC', borderRadius:18, padding:'18px 20px', marginBottom:20 }}>
+        <div style={{ fontSize:11, fontWeight:600, letterSpacing:'.14em', textTransform:'uppercase', color:'#8A7A74', marginBottom:14 }}>
+          Identité
+        </div>
+        <div style={{ fontSize:12, color:'#8A7A74', marginBottom:14, fontFamily:'Manrope,sans-serif' }}>
+          {email}
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+          <div>
+            <label className="lbl">Prénom *</label>
+            <input className="f" value={prenom} onChange={e=>setPrenom(e.target.value)} style={{marginBottom:0}} placeholder="Adlina" />
+          </div>
+          <div>
+            <label className="lbl">Nom</label>
+            <input className="f" value={nom} onChange={e=>setNom(e.target.value)} style={{marginBottom:0}} placeholder="Beauty" />
+          </div>
+        </div>
+        <button className="b-primary" style={{width:'100%'}} onClick={saveName}>
+          Mettre à jour le nom
+        </button>
       </div>
 
-      <label className="lbl">Nouveau PIN</label>
-      <input className="f" type="password" inputMode="numeric" pattern="\d*" maxLength={6}
-        value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))}
-        placeholder="4 à 6 chiffres" />
+      {/* PIN */}
+      <div style={{ background:'#fff', border:'1.5px solid #EFE6DC', borderRadius:18, padding:'18px 20px' }}>
+        <div style={{ fontSize:11, fontWeight:600, letterSpacing:'.14em', textTransform:'uppercase', color:'#8A7A74', marginBottom:8 }}>
+          Mon profil de connexion
+        </div>
+        <div style={{ fontSize:12, color:'#8A7A74', lineHeight:1.7, marginBottom:14, fontFamily:'Manrope,sans-serif' }}>
+          Le PIN vous permet de vous connecter rapidement sans mot de passe. 4 à 6 chiffres. Vous ne pouvez configurer que le vôtre.
+        </div>
+        <label className="lbl">Nouveau PIN</label>
+        <input className="f" type="password" inputMode="numeric" maxLength={6}
+          value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))} placeholder="••••" />
+        <label className="lbl" style={{marginTop:10}}>Confirmer</label>
+        <input className="f" type="password" inputMode="numeric" maxLength={6}
+          value={confirm} onChange={e=>setConfirm(e.target.value.replace(/\D/g,''))} placeholder="••••" />
+        <button className="b-primary" style={{marginTop:14,width:'100%'}} onClick={savePin}>
+          Enregistrer mon PIN
+        </button>
+      </div>
 
-      <label className="lbl" style={{marginTop:12}}>Confirmer le PIN</label>
-      <input className="f" type="password" inputMode="numeric" pattern="\d*" maxLength={6}
-        value={confirm} onChange={e=>setConfirm(e.target.value.replace(/\D/g,''))}
-        placeholder="Répéter le PIN" />
-
-      {err && <div style={{color:'#C62828',fontSize:12,marginTop:8,fontFamily:'Manrope,sans-serif'}}>{err}</div>}
-      {msg && <div style={{color:'#2E7D32',fontSize:12,marginTop:8,fontFamily:'Manrope,sans-serif'}}>✓ {msg}</div>}
-
-      <button className="b-primary" style={{marginTop:18,width:'100%'}} onClick={savePin}>
-        Enregistrer mon PIN
-      </button>
+      {err && <div style={{color:'#C62828',fontSize:12,marginTop:10,fontFamily:'Manrope,sans-serif'}}>⚠ {err}</div>}
+      {msg && <div style={{color:'#2E7D32',fontSize:12,marginTop:10,fontFamily:'Manrope,sans-serif'}}>✓ {msg}</div>}
     </div>
   )
 }

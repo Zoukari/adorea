@@ -71,20 +71,19 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ token: session.properties.hashed_token, email: profile.email })
 }
 
-// PUT /api/pin-login — définir ou changer son PIN
+// PUT /api/pin-login — définir ou changer son PROPRE PIN uniquement
 export async function PUT(req: NextRequest) {
-  const { pin, profile_id } = await req.json()
+  const { pin } = await req.json()  // profile_id ignoré : toujours le sien
 
   if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
     return NextResponse.json({ error: 'PIN_INVALID' }, { status: 400 })
   }
 
-  // Vérifier que l'appelant est bien authentifié
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'NOT_AUTHENTICATED' }, { status: 401 })
 
-  const id = profile_id || user.id
+  const id = user.id  // toujours le compte connecté
 
   const enc = new TextEncoder()
   const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin.trim()))
