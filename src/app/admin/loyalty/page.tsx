@@ -125,7 +125,7 @@ export default function LoyaltyPage() {
     } else if (promoForm.mode === 'prix' && promoForm.nouveau_prix && promoForm.service_id) {
       const svc = services.find(sv => sv.id === promoForm.service_id)
       if (svc && !svc.prix_sur_devis) {
-        remise_fixe = Math.max(0, svc.prix - Number(promoForm.nouveau_prix))
+        remise_fixe = Math.max(0, Number(svc.prix||0) - Number(promoForm.nouveau_prix))
       }
     }
 
@@ -383,7 +383,7 @@ export default function LoyaltyPage() {
             <select className="f" value={promoForm.service_id}
               onChange={e=>setPromoForm(f=>({...f,service_id:e.target.value,nouveau_prix:''}))}>
               <option value="">Toutes les prestations</option>
-              {services.map(sv=><option key={sv.id} value={sv.id}>{sv.nom_fr} — {sv.prix_sur_devis?'sur devis':new Intl.NumberFormat('fr-FR').format(sv.prix)+' FDJ'}</option>)}
+              {services.map(sv=><option key={sv.id} value={sv.id}>{sv.nom_fr} — {sv.prix_sur_devis?'sur devis':new Intl.NumberFormat('fr-FR').format(Number(sv.prix||0))+' FDJ'}</option>)}
             </select>
 
             {/* Mode de remise */}
@@ -412,9 +412,9 @@ export default function LoyaltyPage() {
                 {promoForm.remise_pct && promoForm.service_id && (() => {
                   const sv = services.find(x=>x.id===promoForm.service_id)
                   if (!sv || sv.prix_sur_devis) return null
-                  const n = sv.prix * (1 - Number(promoForm.remise_pct)/100)
+                  const n = Number(sv.prix||0) * (1 - Number(promoForm.remise_pct)/100)
                   return <div style={{ fontSize:11, color:'#2E7D32', marginTop:-8, marginBottom:8 }}>
-                    → Prix affiché : {new Intl.NumberFormat('fr-FR').format(Math.round(n))} FDJ
+                    → Prix affiché : {new Intl.NumberFormat('fr-FR').format(Math.round(Number(n)))} FDJ
                   </div>
                 })()}
               </div>
@@ -442,7 +442,7 @@ export default function LoyaltyPage() {
                         onChange={e=>setPromoForm(f=>({...f,nouveau_prix:e.target.value}))} />
                       {promoForm.nouveau_prix && (
                         <div style={{ fontSize:11, color:'#2E7D32', marginTop:-8, marginBottom:8 }}>
-                          → Remise : {new Intl.NumberFormat('fr-FR').format(Math.max(0,sv.prix-Number(promoForm.nouveau_prix)))} FDJ
+                          → Remise : {new Intl.NumberFormat('fr-FR').format(Math.max(0,Number(sv.prix||0)-Number(promoForm.nouveau_prix)))} FDJ
                         </div>
                       )}
                     </>

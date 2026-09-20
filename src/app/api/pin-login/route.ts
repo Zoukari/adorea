@@ -58,17 +58,18 @@ export async function POST(req: NextRequest) {
 
   // PIN correct → créer une session Supabase Auth
   // On utilise le service role pour signer une session côté serveur
-  const { data: session, error } = await supabaseAdmin.auth.admin.generateLink({
+  const { data: linkData, error } = await supabaseAdmin.auth.admin.generateLink({
     type: 'magiclink',
     email: profile.email!,
-    options: { redirectTo: '/admin' }
+    options: { redirectTo: `${new URL(req.url).origin}/admin` }
   })
 
-  if (error || !session?.properties?.hashed_token) {
-    return NextResponse.json({ error: 'SESSION_FAILED', detail: error?.message }, { status: 500 })
+  const hashed = linkData?.properties?.hashed_token
+  if (error || !hashed) {
+    return NextResponse.json({ error: 'SESSION_FAILED', detail: error?.message || 'no token' }, { status: 500 })
   }
 
-  return NextResponse.json({ token: session.properties.hashed_token, email: profile.email })
+  return NextResponse.json({ token: hashed, email: profile.email })
 }
 
 // PUT /api/pin-login — définir ou changer son PROPRE PIN uniquement
