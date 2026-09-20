@@ -290,6 +290,37 @@ function useOpeningHours(lang: Lang) {
   return txt
 }
 
+
+// ── Promos avec compte à rebours ─────────────────────────
+type LivePromo = {
+  id: string; code: string; remise_pct: number|null; remise_fixe: number|null
+  montant_min: number|null; ends_at: string|null; auto_repeat: boolean
+  service: {id:string;nom_fr:string;prix:number}|null
+}
+function usePromos() {
+  const [promos, setPromos] = useState<LivePromo[]>([])
+  useEffect(() => {
+    fetch('/api/promos').then(r=>r.json()).then(d=>setPromos(d.promos||[])).catch(()=>{})
+  }, [])
+  return promos
+}
+function useCountdown(endsAt: string|null) {
+  const [left, setLeft] = useState('')
+  useEffect(() => {
+    if (!endsAt) return
+    const calc = () => {
+      const diff = new Date(endsAt).getTime() - Date.now()
+      if (diff <= 0) { setLeft('Expiré'); return }
+      const h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000), s2 = Math.floor((diff%60000)/1000)
+      setLeft(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s2).padStart(2,'0')}`)
+    }
+    calc()
+    const id = setInterval(calc, 1000)
+    return () => clearInterval(id)
+  }, [endsAt])
+  return left
+}
+
 const FDJ_LAND = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FDJ'
 
 const CSS = `
@@ -487,6 +518,13 @@ body{font-family:'Montserrat',sans-serif;background:#0A0807;color:#FAF6F0;overfl
 .svc-list-item{display:flex;align-items:center;gap:11px;font-size:12px;font-weight:300;color:rgba(250,246,240,0.55)}
 .svc-list-item::before{content:'';width:14px;height:1px;background:#C9A96A;flex-shrink:0}
 .svc-price{font-size:11.5px;font-weight:500;color:#C9A96A;white-space:nowrap;letter-spacing:0.03em}
+.promo-banner{background:linear-gradient(135deg,#0A0807 60%,#1C1410);border:1px solid rgba(201,169,106,0.35);border-radius:16px;padding:16px 18px;margin:0 52px 32px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.promo-code{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:#C9A96A;letter-spacing:.08em;flex-shrink:0}
+.promo-desc{flex:1;min-width:0;font-size:11.5px;color:rgba(250,246,240,0.55);line-height:1.5;font-family:'Montserrat',sans-serif}
+.promo-desc strong{color:#FAF6F0;font-weight:600}
+.promo-timer{font-variant-numeric:tabular-nums;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#C9A96A;background:rgba(201,169,106,0.1);border:1px solid rgba(201,169,106,0.2);border-radius:100px;padding:5px 14px;white-space:nowrap;flex-shrink:0}
+.promo-strikethrough{text-decoration:line-through;color:rgba(250,246,240,0.35);font-size:10.5px;margin-right:4px}
+@media(max-width:640px){.promo-banner{margin:0 14px 22px}.promo-code{font-size:18px}}
 .svc-devis{font-size:9px;color:#C9A96A;margin-left:5px;opacity:0.65}
 .svc-sep{height:1px;background:linear-gradient(90deg,rgba(201,169,106,0.15),transparent)}
 
@@ -941,6 +979,53 @@ function useReveal(dep?: unknown) {
 }
 
 // ── Booking Modal ─────────────────────────────────────────────
+
+// ── Promo individuelle sur la landing ─────────────────────
+function PromoBanner({ promo, svcs, lang }: { promo: LivePromo; svcs: typeof FALLBACK_SERVICES; lang: Lang }) {
+  const timer = useCountdown(promo.ends_at)
+  const FDJ_FMT = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n))
+
+  const svcPrice = promo.service?.prix
+  const newPrice = promo.remise_pct && svcPrice
+    ? svcPrice * (1 - promo.remise_pct/100) : svcPrice && promo.remise_fixe
+    ? svcPrice - Number(promo.remise_fixe) : null
+
+  const desc = promo.remise_pct
+    ? `−${promo.remise_pct}%`
+    : promo.remise_fixe
+    ? `−${FDJ_FMT(Number(promo.remise_fixe))} FDJ`
+    : ''
+
+  const svcName = promo.service?.nom_fr || (lang==='FR'?'toutes les prestations':lang==='EN'?'all services':'جميع الخدمات')
+
+  return (
+    <div className="promo-banner rv">
+      <span className="promo-code">{promo.code}</span>
+      <div className="promo-desc">
+        <strong>{desc} {lang==='FR'?'sur':lang==='EN'?'on':'على'} {svcName}</strong>
+        {newPrice !== null && svcPrice && (
+          <div style={{marginTop:4}}>
+            <span className="promo-strikethrough">{FDJ_FMT(svcPrice)} FDJ</span>
+            <span style={{color:'#E2C07A',fontWeight:700,fontSize:13}}>{FDJ_FMT(newPrice)} FDJ</span>
+          </div>
+        )}
+        {promo.montant_min && (
+          <div style={{fontSize:10.5,marginTop:3,opacity:.7}}>
+            {lang==='FR'?`Dès ${FDJ_FMT(Number(promo.montant_min))} FDJ`:
+             lang==='EN'?`From ${FDJ_FMT(Number(promo.montant_min))} FDJ`:
+             `من ${FDJ_FMT(Number(promo.montant_min))} FDJ`}
+          </div>
+        )}
+      </div>
+      {timer && promo.ends_at && (
+        <div className="promo-timer">
+          {lang==='FR'?'Finit dans':lang==='EN'?'Ends in':'ينتهي خلال'} {timer}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => void; sections: LiveSection[] }) {
   const t = T[lang]
   const [step, setStep]       = useState(0)
@@ -1029,8 +1114,38 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
   const [lookupState, setLookupState] = useState<'idle'|'searching'|'found'|'notfound'>('idle')
   const [showForm, setShowForm] = useState(false)
   const [done, setDone] = useState<{reference:string;waUrl:string}|null>(null)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoResult, setPromoResult] = useState<{remise:number;prix_final:number;message:string}|null>(null)
+  const [promoErr, setPromoErr] = useState('')
+  const [promoLoading, setPromoLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitErr, setSubmitErr] = useState('')
+
+
+  async function validatePromo() {
+    if (!promoCode.trim()) return
+    setPromoLoading(true); setPromoErr(''); setPromoResult(null)
+    const res = await fetch('/api/promo-check', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        code: promoCode.trim(),
+        service_id: selSvc?.id,
+        montant: selSvc?.devis ? 0 : selSvc?.prix || 0,
+      }),
+    })
+    const d = await res.json()
+    const errs: Record<string,string> = {
+      CODE_INVALID: lang==='FR'?'Code invalide ou désactivé.':'Invalid or disabled code.',
+      CODE_EXPIRED: lang==='FR'?'Ce code a expiré.':'This code has expired.',
+      CODE_EXHAUSTED: lang==='FR'?'Ce code a atteint sa limite d\'utilisations.':'Code limit reached.',
+      CODE_WRONG_SERVICE: lang==='FR'?'Ce code ne s\'applique pas à cette prestation.':'Code not valid for this service.',
+      CODE_MIN_AMOUNT: lang==='FR'?`Montant minimum requis : ${d.min} FDJ.`:'Minimum amount required.',
+    }
+    if (!res.ok) { setPromoErr(errs[d.error] || 'Code invalide.') }
+    else { setPromoResult(d) }
+    setPromoLoading(false)
+  }
 
   async function reserve() {
     if (!selSvc || !selDate || !selSlot) return
@@ -1399,6 +1514,36 @@ function BookingModal({ lang, onClose, sections }: { lang: Lang; onClose: () => 
         {/* STEP 4 */}
         {step===4 && (
           <>
+            {/* Code promo */}
+            <div style={{ marginBottom:18 }}>
+              <label className="f-lbl">
+                {lang==='FR'?'Code promotionnel':lang==='EN'?'Promo code':'رمز ترويجي'}
+              </label>
+              <div style={{ display:'flex', gap:7 }}>
+                <input className="f-in" style={{ flex:1, marginBottom:0, textTransform:'uppercase' }}
+                  value={promoCode} onChange={e=>{setPromoCode(e.target.value.toUpperCase());setPromoResult(null);setPromoErr('')}}
+                  placeholder={lang==='FR'?'ADOREA20':lang==='EN'?'ADOREA20':'ADOREA20'}
+                  onKeyDown={e=>e.key==='Enter'&&validatePromo()} />
+                <button className="btn-or" style={{ flexShrink:0, padding:'10px 16px', fontSize:11 }}
+                  onClick={validatePromo} disabled={promoLoading||!promoCode.trim()}>
+                  {promoLoading ? <span className="spin"/> : lang==='FR'?'Valider':'Apply'}
+                </button>
+              </div>
+              {promoResult && (
+                <div style={{ marginTop:7, padding:'9px 12px', background:'#F1F8F2',
+                  border:'1px solid #A5D6A7', borderRadius:11, fontSize:11.5, color:'#2E7D32',
+                  fontFamily:'Montserrat,sans-serif', lineHeight:1.55 }}>
+                  ✓ {promoResult.message}
+                  {' — '}{lang==='FR'?'Total':'Total'} : <strong>{new Intl.NumberFormat('fr-FR').format(Math.max(0,(selSvc?.prix||0)-(promoResult?.remise||0)))} FDJ</strong>
+                </div>
+              )}
+              {promoErr && (
+                <div style={{ marginTop:7, padding:'8px 12px', background:'#FFEBEE',
+                  border:'1px solid #FFCDD2', borderRadius:11, fontSize:11.5, color:'#C62828',
+                  fontFamily:'Montserrat,sans-serif' }}>{promoErr}</div>
+              )}
+            </div>
+
             <div className="recap-box">
               {[
                 {l:lang==='FR'?'Soin':lang==='EN'?'Service':'الخدمة',v:selSvc?.name},
@@ -1470,6 +1615,7 @@ export default function Home() {
   const [booking, setBooking] = useState(false)
   const activeSection          = useActiveSection()
   const liveSections           = useLiveServices()
+  const livePromos             = usePromos()
   const liveHours              = useOpeningHours(lang)
   const SECTIONS: LiveSection[] = liveSections ?? (FALLBACK_SERVICES as unknown as LiveSection[])
   const t = T[lang]
@@ -1567,6 +1713,15 @@ export default function Home() {
           <span>Certified Belgium · Djibouti</span>
         </div>
       </div>
+
+      {/* ══ PROMOS ══ */}
+      {livePromos.length>0 && (
+        <div style={{ background:'#0A0807', paddingBottom:24 }}>
+          {livePromos.map(p=>(
+            <PromoBanner key={p.id} promo={p} svcs={SECTIONS} lang={lang}/>
+          ))}
+        </div>
+      )}
 
       {/* ══ BRAND ══ */}
       <section className="brand-sec" id="brand">

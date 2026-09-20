@@ -66,6 +66,7 @@ const WA_TOGGLES = [
 ]
 
 export default function SettingsPage() {
+  const [tab, setTab] = useState<'wa'|'general'|'social'|'pin'>('general')
   const supabase = createClient()
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -94,6 +95,12 @@ export default function SettingsPage() {
 
   return (
     <div style={{ padding:32, maxWidth:700 }}>
+      <div className="tabs" style={{marginBottom:20}}>
+        <button className={tab==='general'?'on':''} onClick={()=>setTab('general')}>Général</button>
+        <button className={tab==='wa'?'on':''} onClick={()=>setTab('wa')}>WhatsApp</button>
+        <button className={tab==='social'?'on':''} onClick={()=>setTab('social')}>Réseaux sociaux</button>
+        <button className={tab==='pin'?'on':''} onClick={()=>setTab('pin')}>Mon PIN</button>
+      </div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:32 }}>
         <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:32, fontWeight:300 }}>Paramètres</h1>
         <button onClick={save} style={{
@@ -103,8 +110,7 @@ export default function SettingsPage() {
         }}>{saved ? '✓ Sauvegardé' : 'Sauvegarder'}</button>
       </div>
 
-      {/* Toggles WhatsApp */}
-      <div style={{ background:'white', border:`1px solid ${T.beige}`, borderRadius:8, padding:24, marginBottom:24 }}>
+      {(tab==='wa'||tab==='general') && (<div style={{ background:'white', border:`1px solid ${T.beige}`, borderRadius:8, padding:24, marginBottom:24 }}>
         <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.15em', color:T.muted, textTransform:'uppercase', marginBottom:16 }}>WhatsApp — Activations</div>
         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
           {WA_TOGGLES.map((t, i) => {
@@ -131,10 +137,10 @@ export default function SettingsPage() {
             )
           })}
         </div>
-      </div>
+      </div>)}
 
       {/* Sections paramètres */}
-      {SECTIONS.map(section => (
+      {(tab==='general') && SECTIONS.map(section => (
         <div key={section.title} style={{ background:'white', border:`1px solid ${T.beige}`, borderRadius:8, padding:24, marginBottom:16 }}>
           <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.15em', color:T.muted, textTransform:'uppercase', marginBottom:16 }}>
             {section.title}
@@ -151,6 +157,55 @@ export default function SettingsPage() {
         </div>
       ))}
 
+      {tab==='pin' && <PinSection/>}
+
+
+    </div>
+  )
+}
+// ── Paramétrage du PIN ──────────────────────────────────────
+function PinSection() {
+  const [pin, setPin] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  async function savePin() {
+    setMsg(''); setErr('')
+    if (!/^\d{4,6}$/.test(pin)) { setErr('Le PIN doit contenir 4 à 6 chiffres.'); return }
+    if (pin !== confirm) { setErr('Les deux PIN ne correspondent pas.'); return }
+    const res = await fetch('/api/pin-login', {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ pin }),
+    })
+    if (res.ok) { setMsg('PIN enregistré !'); setPin(''); setConfirm('') }
+    else { setErr('Erreur. Réessayez.') }
+  }
+
+  return (
+    <div style={{ maxWidth:380 }}>
+      <div style={{ fontSize:13, color:'#8A7A74', lineHeight:1.7, marginBottom:20 }}>
+        Le PIN vous permet de vous connecter rapidement à l&apos;espace admin sans saisir votre email et mot de passe.
+        Choisissez un code entre 4 et 6 chiffres.
+      </div>
+
+      <label className="lbl">Nouveau PIN</label>
+      <input className="f" type="password" inputMode="numeric" pattern="\d*" maxLength={6}
+        value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))}
+        placeholder="4 à 6 chiffres" />
+
+      <label className="lbl" style={{marginTop:12}}>Confirmer le PIN</label>
+      <input className="f" type="password" inputMode="numeric" pattern="\d*" maxLength={6}
+        value={confirm} onChange={e=>setConfirm(e.target.value.replace(/\D/g,''))}
+        placeholder="Répéter le PIN" />
+
+      {err && <div style={{color:'#C62828',fontSize:12,marginTop:8,fontFamily:'Manrope,sans-serif'}}>{err}</div>}
+      {msg && <div style={{color:'#2E7D32',fontSize:12,marginTop:8,fontFamily:'Manrope,sans-serif'}}>✓ {msg}</div>}
+
+      <button className="b-primary" style={{marginTop:18,width:'100%'}} onClick={savePin}>
+        Enregistrer mon PIN
+      </button>
     </div>
   )
 }
