@@ -1331,9 +1331,23 @@ function BookingModal({ lang, onClose, sections, promos }: { lang: Lang; onClose
                   <div className="rdot"/>
                   <div>
                     <span className="pick-name">{item.name}</span>
-                    <span className="pick-devis-badge">
-                      {item.devis ? (lang==='AR'?'· حسب التقدير':lang==='EN'?'· On quote':'· Sur devis') : ' · ' + FDJ_LAND(item.prix)}
-                    </span>
+                    {(() => {
+                      if (item.devis) return <span className="pick-devis-badge">
+                        {lang==='AR'?'· حسب التقدير':lang==='EN'?'· On quote':'· Sur devis'}</span>
+                      const pr = promos.find(p2 => !p2.service_id || p2.service_id === item.id)
+                      if (!pr) return <span className="pick-devis-badge">{' · ' + FDJ_LAND(item.prix)}</span>
+                      const np = pr.remise_pct
+                        ? item.prix * (1 - Number(pr.remise_pct)/100)
+                        : Math.max(0, item.prix - Number(pr.remise_fixe||0))
+                      return (
+                        <span className="pick-devis-badge">
+                          {' · '}
+                          <span style={{textDecoration:'line-through',opacity:.45}}>{FDJ_LAND(item.prix)}</span>
+                          {' '}
+                          <strong style={{color:'#C9A96A'}}>{FDJ_LAND(np)}</strong>
+                        </span>
+                      )
+                    })()}
                     <div className="pick-cat">{s.label[lang]}</div>
                   </div>
                 </button>
