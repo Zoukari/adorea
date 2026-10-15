@@ -64,6 +64,8 @@ export default function CaissePage() {
   const [apptDate, setApptDate] = useState(iso(new Date()))
   const [apptTo, setApptTo] = useState(iso(new Date()))
   const [statutFilter, setStatutFilter] = useState('')
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
   const [editAppt, setEditAppt] = useState<null|{id:string;service_id:string;date_rdv:string;heure_debut:string;prix_final:string}>(null)
   const [savingAppt, setSavingAppt] = useState(false)
 
@@ -132,6 +134,7 @@ export default function CaissePage() {
   }, [supabase, today])
 
   useEffect(() => { if (tab==='rdv') loadAppts() }, [tab, loadAppts])
+  useEffect(() => { setSelection(new Set()) }, [apptDate, apptTo, statutFilter])
   useEffect(() => { if (tab==='cloture') loadCloture() }, [tab, loadCloture])
 
   // Après modification d'un RDV, les montants de clôture sont recalculés
@@ -219,6 +222,35 @@ export default function CaissePage() {
   async function setStatut(id: string, statut: string) {
     await supabase.from('appointments').update({ statut }).eq('id', id)
     loadAppts()
+  }
+
+  const visibles = () => appts.filter(a => !statutFilter || a.statut === statutFilter)
+
+  function toggleSel(id: string) {
+    setSelection(s2 => {
+      const n = new Set(s2)
+      if (n.has(id)) n.delete(id); else n.add(id)
+      return n
+    })
+  }
+
+  function toggleAll() {
+    const ids = visibles().map(a => a.id)
+    setSelection(s2 => s2.size === ids.length ? new Set() : new Set(ids))
+  }
+
+  async function deleteSelection() {
+    const ids = Array.from(selection)
+    if (!ids.length) return
+    if (!confirm(`Supprimer définitivement ${ids.length} rendez-vous ?\n\nLes paiements associés seront également supprimés.`)) return
+    setDeleting(true)
+    await supabase.from('payments').delete().in('appointment_id', ids)
+    await supabase.from('appointments').delete().in('id', ids)
+    setSelection(new Set())
+    setDeleting(false)
+    loadAppts(); loadCloture()
+    setToast(`${ids.length} rendez-vous supprimé${ids.length>1?'s':''}`)
+    setTimeout(()=>setToast(''), 3000)
   }
 
   async function saveAppt() {
@@ -559,9 +591,58 @@ export default function CaissePage() {
           {appts.length===0 ? (
             <div className="empty">Aucun rendez-vous sur cette période.</div>
           ) : (
+            <>
+            {/* Barre de sélection */}
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:10,
+              padding: selection.size ? '10px 14px' : '0 2px',
+              background: selection.size ? '#FBF5EC' : 'transparent',
+              border: selection.size ? '1.5px solid #E8D5B0' : 'none',
+              borderRadius:13, transition:'all .2s' }}>
+              <button onClick={toggleAll} style={{ display:'flex', alignItems:'center', gap:8,
+                background:'transparent', border:'none', cursor:'pointer', padding:0,
+                fontFamily:'Manrope,sans-serif', fontSize:12, color:T.muted }}>
+                <span style={{ width:17, height:17, borderRadius:5, flexShrink:0,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  background: selection.size && selection.size === visibles().length ? T.gold : '#fff',
+                  border: selection.size && selection.size === visibles().length
+                    ? `2px solid ${T.gold}` : '2px solid #C5B8A5',
+                  color:'#fff', fontSize:11, fontWeight:700 }}>
+                  {selection.size && selection.size === visibles().length ? '✓' : ''}
+                </span>
+                Tout sélectionner
+              </button>
+
+              {selection.size > 0 && (
+                <>
+                  <span style={{ fontSize:12.5, fontWeight:600, color:T.black }}>
+                    {selection.size} sélectionné{selection.size>1?'s':''}
+                  </span>
+                  <button className="b-danger" style={{ marginLeft:'auto', padding:'8px 16px', fontSize:11.5 }}
+                    onClick={deleteSelection} disabled={deleting}>
+                    {deleting ? 'Suppression...' : 'Supprimer la sélection'}
+                  </button>
+                  <button className="b-ghost" style={{ padding:'8px 14px', fontSize:11.5 }}
+                    onClick={()=>setSelection(new Set())}>Annuler</button>
+                </>
+              )}
+            </div>
+
             <div className="rows">
-              {appts.filter(a=>!statutFilter||a.statut===statutFilter).map(a=>(
-                <div key={a.id} className="row" style={{ gridTemplateColumns:'auto minmax(0,1fr) auto auto' }}>
+              {visibles().map(a=>(
+                <div key={a.id} className="row"
+                  style={{ gridTemplateColumns:'auto auto minmax(0,1fr) auto auto',
+                    background: selection.has(a.id) ? '#FBF5EC' : '#fff',
+                    borderColor: selection.has(a.id) ? '#E8D5B0' : '#EFE6DC' }}>
+                  <button onClick={()=>toggleSel(a.id)} style={{ background:'transparent', border:'none',
+                    padding:0, cursor:'pointer', display:'flex', alignItems:'center' }}>
+                    <span style={{ width:17, height:17, borderRadius:5, flexShrink:0,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      background: selection.has(a.id) ? T.gold : '#fff',
+                      border: selection.has(a.id) ? `2px solid ${T.gold}` : '2px solid #C5B8A5',
+                      color:'#fff', fontSize:11, fontWeight:700 }}>
+                      {selection.has(a.id) ? '✓' : ''}
+                    </span>
+                  </button>
                   <div style={{ minWidth:56 }}>
                     <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:19, color:T.gold, lineHeight:1.1 }}>
                       {a.heure_debut?.slice(0,5)}
@@ -615,6 +696,7 @@ export default function CaissePage() {
                 </div>
               ))}
             </div>
+            </>
           )}
         </>
       )}

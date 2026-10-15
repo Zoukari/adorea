@@ -66,7 +66,7 @@ const WA_TOGGLES = [
 ]
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<'wa'|'general'|'social'|'pin'>('general')
+  const [tab, setTab] = useState<'wa'|'general'|'social'|'pin'|'reset'>('general')
   const supabase = createClient()
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -100,6 +100,7 @@ export default function SettingsPage() {
         <button className={tab==='wa'?'on':''} onClick={()=>setTab('wa')}>WhatsApp</button>
         <button className={tab==='social'?'on':''} onClick={()=>setTab('social')}>Réseaux sociaux</button>
         <button className={tab==='pin'?'on':''} onClick={()=>setTab('pin')}>Mon profil</button>
+        <button className={tab==='reset'?'on':''} onClick={()=>setTab('reset')}>Données</button>
       </div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:32 }}>
         <h1 style={{ fontFamily:'Cormorant Garamond,serif', fontSize:32, fontWeight:300 }}>Paramètres</h1>
@@ -158,6 +159,7 @@ export default function SettingsPage() {
       ))}
 
       {tab==='pin' && <ProfileSection/>}
+      {tab==='reset' && <ResetSection/>}
 
 
     </div>
@@ -257,6 +259,137 @@ function ProfileSection() {
 
       {err && <div style={{color:'#C62828',fontSize:12,marginTop:10,fontFamily:'Manrope,sans-serif'}}>⚠ {err}</div>}
       {msg && <div style={{color:'#2E7D32',fontSize:12,marginTop:10,fontFamily:'Manrope,sans-serif'}}>✓ {msg}</div>}
+    </div>
+  )
+}
+
+// ── Remise à zéro des données ───────────────────────────────
+const RESET_SCOPES = [
+  { key:'ventes',   label:'Rendez-vous, ventes et paiements',
+    desc:'Tout l\'historique de caisse : rendez-vous, encaissements, fiches santé et consentements.' },
+  { key:'clients',  label:'Fiches clientes',
+    desc:'Toutes les clientes et leurs récompenses fidélité.' },
+  { key:'depenses', label:'Dépenses',
+    desc:'Les achats et charges saisis en comptabilité.' },
+  { key:'clotures', label:'Clôtures de caisse',
+    desc:'L\'historique des fermetures et des écarts.' },
+  { key:'journaux', label:'Journaux techniques',
+    desc:'Traces de notifications et d\'activité. Sans effet sur vos chiffres.' },
+]
+
+function ResetSection() {
+  const [scopes, setScopes] = useState<string[]>(['ventes'])
+  const [confirm, setConfirm] = useState('')
+  const [running, setRunning] = useState(false)
+  const [rapport, setRapport] = useState<Record<string, number|string>|null>(null)
+  const [err, setErr] = useState('')
+
+  const toggle = (k: string) =>
+    setScopes(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
+
+  async function run() {
+    setErr(''); setRapport(null)
+    if (confirm !== 'REMISE A ZERO') { setErr('Recopiez exactement : REMISE A ZERO'); return }
+    if (!scopes.length) { setErr('Choisissez au moins une catégorie.'); return }
+    setRunning(true)
+    const res = await fetch('/api/admin/reset', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ confirm, scopes }),
+    })
+    const d = await res.json()
+    setRunning(false)
+    if (!res.ok) { setErr(d.error === 'NOT_AUTHENTICATED' ? 'Session expirée, reconnectez-vous.' : 'Erreur : ' + (d.error || 'inconnue')); return }
+    setRapport(d.supprime); setConfirm('')
+  }
+
+  const total = rapport
+    ? Object.values(rapport).filter(v => typeof v === 'number').reduce((a, b) => a + (b as number), 0)
+    : 0
+
+  return (
+    <div style={{ maxWidth:520 }}>
+      {/* Ce qui est conservé */}
+      <div style={{ background:'#F1F8F2', border:'1.5px solid #A5D6A7', borderRadius:16,
+        padding:'15px 17px', marginBottom:18 }}>
+        <div style={{ fontSize:12.5, fontWeight:600, color:'#2E7D32', marginBottom:6 }}>
+          Toujours conservé
+        </div>
+        <div style={{ fontSize:11.5, color:'#4A7C4E', lineHeight:1.7 }}>
+          Prestations et catégories · Équipe · Horaires d&apos;ouverture · Promotions ·
+          Règles de fidélité · Images du site · Paramètres · Comptes et PIN
+        </div>
+      </div>
+
+      <div style={{ fontSize:13, color:'#8A7A74', lineHeight:1.7, marginBottom:16 }}>
+        Effacez vos données de test avant le lancement. Cette action est définitive —
+        les données supprimées ne sont pas récupérables.
+      </div>
+
+      {/* Catégories */}
+      <div style={{ border:'1.5px solid #E5DACE', borderRadius:16, overflow:'hidden', marginBottom:18 }}>
+        {RESET_SCOPES.map((sc, i) => {
+          const on = scopes.includes(sc.key)
+          return (
+            <button key={sc.key} type="button" onClick={()=>toggle(sc.key)}
+              style={{ display:'flex', alignItems:'flex-start', gap:11, width:'100%',
+                padding:'13px 15px', border:'none',
+                borderTop: i===0 ? 'none' : '1px solid #F2EDE8',
+                background: on ? '#FDF3F3' : '#fff', cursor:'pointer',
+                fontFamily:'Manrope,sans-serif', textAlign:'left' }}>
+              <span style={{ width:17, height:17, borderRadius:5, flexShrink:0, marginTop:2,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                background: on ? '#D14343' : '#fff',
+                border: on ? '2px solid #D14343' : '2px solid #C5B8A5',
+                color:'#fff', fontSize:11, fontWeight:700 }}>{on ? '✓' : ''}</span>
+              <span style={{ flex:1 }}>
+                <span style={{ display:'block', fontSize:13, fontWeight:500, color:'#1A1A1A' }}>
+                  {sc.label}
+                </span>
+                <span style={{ display:'block', fontSize:11, color:'#8A7A74', marginTop:3, lineHeight:1.5 }}>
+                  {sc.desc}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Confirmation */}
+      <label className="lbl">Recopiez <strong>REMISE A ZERO</strong> pour confirmer</label>
+      <input className="f" value={confirm} onChange={e=>setConfirm(e.target.value.toUpperCase())}
+        placeholder="REMISE A ZERO" style={{ letterSpacing:'.1em' }} />
+
+      {err && (
+        <div style={{ background:'#FFEBEE', border:'1px solid #FFCDD2', borderRadius:11,
+          padding:'10px 13px', fontSize:12, color:'#C62828', marginTop:10,
+          fontFamily:'Manrope,sans-serif' }}>{err}</div>
+      )}
+
+      <button className="b-danger" style={{ width:'100%', marginTop:16, padding:'14px' }}
+        onClick={run} disabled={running || confirm !== 'REMISE A ZERO'}>
+        {running ? 'Suppression en cours...' : 'Effacer les données sélectionnées'}
+      </button>
+
+      {/* Rapport */}
+      {rapport && (
+        <div style={{ background:'#fff', border:'1.5px solid #EFE6DC', borderRadius:16,
+          padding:'16px 18px', marginTop:18 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#2E7D32', marginBottom:11 }}>
+            ✓ {total} enregistrement{total>1?'s':''} supprimé{total>1?'s':''}
+          </div>
+          {Object.entries(rapport).filter(([,v]) => v !== 0).map(([t,v]) => (
+            <div key={t} style={{ display:'flex', justifyContent:'space-between',
+              fontSize:11.5, padding:'4px 0', color:'#8A7A74' }}>
+              <span>{t}</span>
+              <strong style={{ color: typeof v === 'number' ? '#1A1A1A' : '#C62828' }}>{v}</strong>
+            </div>
+          ))}
+          <div style={{ fontSize:11.5, color:'#8A7A74', marginTop:12, paddingTop:11,
+            borderTop:'1px solid #F2EDE8', lineHeight:1.6 }}>
+            Rechargez les pages Caisse et Comptabilité pour voir les compteurs à zéro.
+          </div>
+        </div>
+      )}
     </div>
   )
 }
